@@ -1,6 +1,6 @@
 {
   "name": "lang-zh-cn",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "a chinese(simplified) language for iComic",
   "main": "main.js",
   "scripts": {},
