@@ -4,13 +4,25 @@ const { execSync } = require('child_process');
 const { iComicCtrl } = require('./iComic.js');
 const crypto = require('crypto');
 
+const findRoot = () => {
+    let dir = __dirname;
+    while (dir !== '/') {
+        if (fs.existsSync(path.join(dir, 'package.json'))) {
+            return dir;
+        }
+        dir = path.dirname(dir);
+    }
+    return process.cwd();
+};
+
 // 配置项
 const CONFIG = {
-    repo: process.env.UPDATE_REPO, // GitHub仓库
+    rootDir: findRoot(),
+    repo: process.env.UPDATE_REPO || "soCoolDad/iComic", // GitHub仓库
     currentVersion: require('../../package.json').version,
-    backupDir: path.join(__dirname, '.backup'),
-    tempDir: path.join(__dirname, '.temp'),
-    maxBackups: 2
+    backupDir: path.join(findRoot(), '.backup'),
+    tempDir: path.join(findRoot(), '.temp'),
+    maxBackups: 1
 };
 
 class UpdateSystem {
@@ -39,17 +51,20 @@ class UpdateSystem {
             const iComic = new iComicCtrl();
             // 使用iComic.get请求GitHub API
             const response = await iComic.get(
-                `https://api.github.com/repos/${repo}/releases/latest`,
+                `https://api.github.com/repos/${CONFIG.repo}/releases/latest`,
                 {
                     headers: {
-                        'Accept': 'application/vnd.github.v3+json'
+                        'Accept': 'application/vnd.github.v3+json',
+                        'User-Agent': 'iComic'
                     }
                 }
             );
 
             const res = JSON.parse(response.body);
 
-            return this.compareVersions(CONFIG.currentVersion, res.data.tag_name) == 1 ? res.data : null;
+            //console.log(res);
+
+            return this.compareVersions(CONFIG.currentVersion, res.tag_name) == 1 ? res : null;
         } catch (error) {
             throw new Error(`检查更新失败: ${error.message}`);
         }
@@ -68,20 +83,28 @@ class UpdateSystem {
         const backupName = `backup_${new Date().toISOString()}.zip`;
         const backupPath = path.join(CONFIG.backupDir, backupName);
 
-        execSync(`zip -r ${backupPath} . -x "node_modules/*" ".backup/*" ".temp/*"`);
+        // 修改后的执行方式
+        execSync(`zip -r ${backupPath} . -x "node_modules/*" "web/node_modules/*" ".backup/*" ".temp/*"`, {
+            stdio: 'ignore',  // 完全忽略输出
+            maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
+        });
+
         return backupPath;
     }
 
     // 安全下载更新
     async downloadUpdate(release) {
         await fs.ensureDir(CONFIG.tempDir);
-        const asset = release.assets.find(a => a.name.endsWith('.zip'));
+        const asset = release.zipball_url;
 
         if (!asset) throw new Error('未找到ZIP格式的Release资源');
-        console.log('update', `下载更新包: ${asset.name}`);
+        console.log('update', `下载更新包: ${asset}`);
 
         const tempFile = path.join(CONFIG.tempDir, 'update.zip');
-        execSync(`curl -L "${asset.browser_download_url}" -o ${tempFile}`);
+        execSync(`curl -L "${asset}" -o ${tempFile}`, {
+            stdio: 'ignore',  // 完全忽略输出
+            maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
+        });
 
         // 校验SHA256（可选）
         if (release.body.includes('SHA256')) {
@@ -102,17 +125,42 @@ class UpdateSystem {
     async applyUpdate(zipPath) {
         try {
             console.log('update', '解压更新包...');
-            execSync(`unzip -o ${zipPath} -d ${CONFIG.tempDir}/new`);
+            execSync(`unzip -o ${zipPath} -d ${CONFIG.tempDir}/new`, {
+                stdio: 'ignore',  // 完全忽略输出
+                maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
+            });
 
             // 关闭当前进程使用的文件
             process.removeAllListeners();
 
-            // 使用rsync原子替换
-            execSync(`rsync -a --delete ${CONFIG.tempDir}/new/ ${__dirname}/`);
+            //查找new目录下真正的项目文件目录
+            //压缩包目录是new/icomicvxxx/package.json
+            //我需要依靠package.json文件来找到项目文件目录
+            const newDir = path.join(CONFIG.tempDir, 'new');
+            const entries = await fs.readdir(newDir);
+            let sourceDir = newDir;
+
+            // GitHub zipball会创建一个子目录如"iComic-1.0.0"
+            if (entries.length === 1) {
+                const subDir = path.join(newDir, entries[0]);
+                if (fs.existsSync(path.join(subDir, 'package.json'))) {
+                    sourceDir = subDir;
+                }
+            }
+
+            if (!fs.existsSync(path.join(sourceDir, 'package.json'))) {
+                throw new Error('未找到有效的项目目录');
+            }
+
+            // 使用rsync原子替换（修改后的路径）
+            execSync(`rsync -a ${sourceDir}/ ${CONFIG.rootDir}/`, {
+                stdio: 'ignore',
+                maxBuffer: 1024 * 1024 * 100
+            });
 
             console.log('update', '安装插件...');
-            let source_configs_path = path.join(__dirname, "configs");
-            let target_configs_path = process.env.CONFIGS_PATH || path.join(__dirname, "configs");
+            let source_configs_path = path.join(CONFIG.rootDir, "configs");
+            let target_configs_path = process.env.CONFIGS_PATH || path.join(CONFIG.rootDir, "configs");
 
             //如果不一致就复制到目标文件夹
             if (source_configs_path != target_configs_path) {
@@ -120,8 +168,16 @@ class UpdateSystem {
             }
 
             console.log('update', '安装新依赖...');
-            execSync('cnpm install', { stdio: 'inherit' });
-            execSync('cd web && cnpm install && cnpm run build', { stdio: 'inherit' });
+            execSync('cnpm install --quiet', {
+                stdio: 'ignore',  // 完全忽略输出
+                maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
+            });
+
+            execSync('cd web && cnpm install --quiet && cnpm run build --silent', {
+                stdio: 'ignore',  // 完全忽略输出
+                maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
+            });
+
         } catch (error) {
             throw new Error(`应用更新失败: ${error.message}`);
         }
@@ -130,43 +186,66 @@ class UpdateSystem {
     // 回滚机制
     async rollback(backupPath) {
         console.log('update', '正在回滚...');
-        execSync(`unzip -o ${backupPath} -d ${__dirname}`);
+
+        execSync(`unzip -o ${backupPath} -d ${CONFIG.rootDir}`, {
+            stdio: 'ignore',  // 完全忽略输出
+            maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
+        });
+
         console.log('update', '回滚完成，请重启应用');
-        process.exit(1);
     }
 
+    reboot() {
+        setTimeout(() => {
+            // 改为使用PM2重启
+            try {
+                execSync(`pm2 reload all --update-env`, {
+                    stdio: 'inherit'
+                });
+            } catch (e) {
+                console.error('PM2重启失败:', e.message);
+                process.exit(1);
+            }
+            process.exit(0);  // 确保进程退出
+        }, 1000);
+    }
     // 主流程
     async execute() {
         let backup;
         try {
             const release = await this.checkUpdate();
-            
+
             if (!release) {
                 console.log('update', '当前已是最新版');
                 return { status: false, msg: '当前已是最新版' };
             }
 
             console.log('update', `发现新版本: ${release.tag_name}`);
+
+            console.log('update', '创建备份...');
             backup = await this.createBackup();
+
+            console.log('update', '下载更新...');
             const updateFile = await this.downloadUpdate(release);
+
+            console.log('update', '应用更新...');
             await this.applyUpdate(updateFile);
+
             console.log('update', '更新成功！即将重启...');
 
-            setTimeout(() => {
-                require('child_process').spawn(process.argv[0], process.argv, {
-                    detached: true,
-                    stdio: 'inherit'
-                });
-                process.exit(0);
-            }, 1000);
-
+            return { status: true, msg: '更新成功！即将重启...' };
         } catch (error) {
             console.error('update', error.message);
+
             if (backup) {
                 await this.rollback(backup);
             } else {
                 console.error('update', '备份不存在，无法回滚');
             }
+
+            return { status: false, msg: error.message };
+        } finally {
+            this.reboot();
         }
     }
 }

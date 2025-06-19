@@ -23,6 +23,15 @@
                         @click="show_update = true">更新</el-button>
                 </div>
             </div>
+            <div class="sub_box">
+                <div class="sub_title">Cache</div>
+                <div class="desc">
+                    {{ cache_size_parse }}
+                </div>
+                <div class="buttons">
+                    <el-button round type="primary" :loading="getCacheSizeWorking" @click="clearCache">清理缓存</el-button>
+                </div>
+            </div>
         </div>
         <div class="hide">
             <el-dialog v-model="show_update" :title="`新版本[${has_update_new_version}]`" width="500" align-center>
@@ -53,6 +62,27 @@
 import { defineComponent } from 'vue';
 export default defineComponent({
     name: 'setting',
+    computed: {
+        cache_size_parse() {
+            //格式化cache_size 
+            //返回对应的bytes,KB,MB,GB
+            if (this.cache_size == 0) {
+                return "0B";
+            }
+
+            if (this.cache_size < 1024) {
+                return this.cache_size + "B";
+            } else if (this.cache_size < 1024 * 1024) {
+                return (this.cache_size / 1024).toFixed(2) + "KB";
+            } else if (this.cache_size < 1024 * 1024 * 1024) {
+                return (this.cache_size / 1024 / 1024).toFixed(2) + "MB";
+            } else if (this.cache_size < 1024 * 1024 * 1024 * 1024) {
+                return (this.cache_size / 1024 / 1024 / 1024).toFixed(2) + "GB";
+            }
+
+            return this.cache_size + "B";
+        }
+    },
     data() {
         return {
             version: "0.0.0",
@@ -62,13 +92,48 @@ export default defineComponent({
             has_update_date: "",
             ajaxWorking: false,
             show_update: false,
-            github_repo: ""
+            github_repo: "",
+            cache_size: 0,
+            getCacheSizeWorking: false,
         }
     },
     mounted() {
         this.sysConfig();
+        this.getCacheSize();
     },
     methods: {
+        getCacheSize() {
+            if (this.getCacheSizeWorking) return;
+            this.getCacheSizeWorking = true;
+            this.$g.http.send('/api/setting/getCacheSize', 'get').then((res) => {
+                if (res.status) {
+                    this.cache_size = res.data.size;
+                }
+            }).catch((err) => {
+                this.$g.tipbox.error(err.message);
+            }).finally(() => {
+                this.getCacheSizeWorking = false;
+            });
+        },
+        //清理缓存
+        clearCache() {
+            if(this.clearCacheWorking)return;
+
+            this.clearCacheWorking = true;
+            
+            this.$g.http.send('/api/setting/clearCache', 'get').then((res) => {
+                if (res.status) {
+                    this.$g.tipbox.success(res.msg);
+                } else {
+                    this.$g.tipbox.error(res.msg);
+                }
+            }).catch((err) => {
+                this.$g.tipbox.error(err.message);
+            }).finally(() => {
+                this.clearCacheWorking = false;
+                this.getCacheSize();
+            });
+        },
         sysConfig() {
             if (this.ajaxWorking) return;
 

@@ -1,5 +1,7 @@
 const { iComicCtrl } = require('../../units/iComic.js');
 const { UpdateSystem } = require('../../units/update.js');
+const path = require('path');
+const fs = require('fs');
 const currentVersion = require('../../../package.json').version;
 class setting {
     sysConfig() {
@@ -9,6 +11,103 @@ class setting {
                 version: currentVersion,
                 github_repo: process.env.UPDATE_REPO
             }
+        }
+    }
+
+    getCacheSize() {
+        //计算根目录下
+        // .backup 文件夹的大小
+        // .temp 文件夹的大小
+        // 先判断文件夹存在不存在
+        let rootDir = path.join(__dirname, "/../../../");
+        let backupSize = 0, tempSize = 0, totalSize = 0;
+        let backup_path = path.join(rootDir, '.backup');
+        let temp_path = path.join(rootDir, '.temp');
+
+        // 递归计算文件夹大小的函数
+        const calculateSize = (dirPath) => {
+            if (!fs.existsSync(dirPath)) return 0;
+
+            const stats = fs.statSync(dirPath);
+            if (stats.isFile()) {
+                // 跳过点开头的文件
+                return path.basename(dirPath).startsWith('.') ? 0 : stats.size;
+            }
+
+            // 跳过node_modules和点开头的文件夹
+            const dirName = path.basename(dirPath);
+            if (dirName === 'node_modules' || dirName.startsWith('.')) {
+                return 0;
+            }
+
+            let total = 0;
+            const items = fs.readdirSync(dirPath);
+
+            for (const item of items) {
+                const itemPath = path.join(dirPath, item);
+                try {
+                    total += calculateSize(itemPath);
+                } catch (error) {
+                    console.error(`计算 ${itemPath} 大小出错:`, error);
+                    continue;
+                }
+            }
+            return total;
+        };
+
+        // let backup_path = path.join(rootDir, 'configs', 'library');
+        // let temp_path = path.join(rootDir, 'configs', 'plugin');
+
+        let paths = [];
+
+        if (fs.existsSync(backup_path)) {
+            paths.push(backup_path);
+        }
+
+        if (fs.existsSync(temp_path)) {
+            paths.push(temp_path);
+        }
+
+        for (const path of paths) {
+            if (fs.existsSync(path)) {
+                try {
+                    totalSize += calculateSize(path);
+                } catch (error) {
+                    console.log(`计算文件夹${path}大小出错:`, error);
+                    totalSize += 0;
+                }
+            }
+        }
+
+        return {
+            status: true,
+            data: {
+                rootDir,
+                backupSize,
+                tempSize,
+                size: totalSize
+            }
+        }
+    }
+
+    clearCache(req, res, helpers) {
+        let rootDir = path.join(__dirname, "/../../../");
+        let backup_path = path.join(rootDir, '.backup');
+        let temp_path = path.join(rootDir, '.temp');
+
+        try {
+            //如果存在就删除
+            if (fs.existsSync(backup_path)) {
+                fs.rmdirSync(backup_path, { recursive: true });
+            }
+
+            if (fs.existsSync(temp_path)) {
+                fs.rmdirSync(temp_path, { recursive: true });
+            }
+
+            return { status: true, msg: "清除缓存成功" };
+        } catch (error) {
+            return { status: false, msg: "清除缓存失败: " + error.message }
         }
     }
 
@@ -109,7 +208,7 @@ class setting {
         try {
             const updater = new UpdateSystem();
             const result = await updater.execute();
-            return { status: true, data: result };
+            return result;
         } catch (error) {
             return { status: false, msg: error.message };
         }

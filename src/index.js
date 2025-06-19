@@ -103,7 +103,7 @@ app.all('/api/:module/:method', async (req, res) => {
             res.status(500).json({ status: false, msg: e.message })
         }
     } else {
-        res.status(404).json({ error: 'API not found' })
+        res.status(404).json({ status: false, error: 'API not found' })
     }
 });
 console.log("init", "api");
@@ -116,7 +116,7 @@ if (fs.existsSync(path.join(web_build_dir, "index.html"))) {
     app.use(express.static(web_build_dir));
 
     // 返回 index.html
-    app.get('/', (req, res) => {
+    app.get('*', (req, res) => {
         res.sendFile(path.join(web_build_dir, 'index.html'));
     });
 

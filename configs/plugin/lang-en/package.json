@@ -1,6 +1,6 @@
 {
   "name": "lang-en",
-  "version": "0.0.3",
+  "version": "0.0.1",
   "description": "a english language for iComic",
   "main": "main.js",
   "scripts": {},
