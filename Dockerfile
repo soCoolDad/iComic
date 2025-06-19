@@ -7,27 +7,31 @@ RUN apk add --no-cache python3 make g++
 # 设置工作目录
 WORKDIR /app
 
-# 1. 复制包管理文件（利用Docker缓存层）
+# 1. 复制项目目录
 COPY package*.json ./
-COPY web/package*.json ./web/
+COPY src src
+COPY web web
 
-# 2. 安装依赖（推荐使用npm或yarn）
+RUN mkdir configs
+# 2. 复制主要插件
+COPY configs/plugin/cbzFileParse configs/plugin/cbzFileParse 
+COPY configs/plugin/lang-en configs/plugin/lang-en  
+COPY configs/plugin/lang-zh-cn configs/plugin/lang-zh-cn
+
+# 3. 安装依赖（推荐使用npm或yarn）
 RUN npm install -g cnpm && \
-    cnpm install -g concurrently && \
     cnpm install && \
     cd web && \
     cnpm install && \
+    cnpm run build && \
     cd .. 
 
-# 3. 复制项目文件
-COPY . .
-
 # 4. 暴露配置目录和端口
-VOLUME /app/configs
+VOLUME /configs
 EXPOSE 3000
 ENV NODE_ENV=production \
-    CONFIG_DIR="/app/configs/" \
+    CONFIG_DIR="/configs" \
     SERVER_PORT=3000 \
     UPDATE_REPO="soCoolDad/iComic"
 # 5. 启动命令
-CMD ["npm run all"]
+CMD ["cnpm", "run", "start"]

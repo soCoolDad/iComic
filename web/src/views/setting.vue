@@ -7,7 +7,7 @@
                 <div class="desc">iComic is an e-comic reading application with support for third-party plugins to fetch
                     and parse files. Happy reading!</div>
                 <div class="buttons">
-                    <el-button>GitHub</el-button>
+                    <el-button round type="primary" @click="openGithub">GitHub</el-button>
                 </div>
             </div>
             <div class="sub_box">
@@ -18,8 +18,8 @@
                     <el-tag type="danger" v-if="has_update">新:{{ has_update_new_version }}</el-tag>
                 </div>
                 <div class="buttons">
-                    <el-button :loading="ajaxWorking" @click="checkUpdate">检查更新</el-button>
-                    <el-button v-if="has_update" type="danger" :loading="ajaxWorking"
+                    <el-button round type="primary" :loading="ajaxWorking" @click="checkUpdate">检查更新</el-button>
+                    <el-button round v-if="has_update" type="danger" :loading="ajaxWorking"
                         @click="show_update = true">更新</el-button>
                 </div>
             </div>
@@ -61,20 +61,22 @@ export default defineComponent({
             has_update_releaseNotes: "",
             has_update_date: "",
             ajaxWorking: false,
-            show_update: false
+            show_update: false,
+            github_repo: ""
         }
     },
     mounted() {
-        this.sysConfig();  
+        this.sysConfig();
     },
     methods: {
         sysConfig() {
-            if(this.ajaxWorking) return;
+            if (this.ajaxWorking) return;
 
             this.ajaxWorking = true;
             this.$g.http.send('/api/setting/sysConfig', 'get').then((res) => {
                 if (res.status) {
                     this.version = res.data.version;
+                    this.github_repo = res.data.github_repo
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
@@ -96,9 +98,9 @@ export default defineComponent({
 
                     if (this.has_update) {
                         this.$g.tipbox.success(`发现新版本:[${this.has_update_new_version}]`);
-                    }else if(res.data?.isCurrentHigher){
+                    } else if (res.data?.isCurrentHigher) {
                         this.$g.tipbox.success(`版本:[${this.version}]是最新版本`);
-                    }else{
+                    } else {
                         this.$g.tipbox.success(`当前已是最新版本`);
                     }
                 } else {
@@ -112,7 +114,39 @@ export default defineComponent({
             });
         },
         onUpdateSystem() {
-            //
+            this.$g.msgbox.confirm(`确定更新吗?如果数据没有备份或持久化，更新后将会丢失`, '数据警告', {
+                beforeClose: (action, instance, done) => {
+                    if (action === 'confirm') {
+                        instance.confirmButtonLoading = true
+                        instance.confirmButtonText = 'Update...'
+
+                        this.ajaxWorking = true;
+
+                        this.$g.http.send('/api/setting/delete', 'post', {
+                            
+                        }).then((res) => {
+                            if (res.status) {
+                                this.$g.tipbox.success(res.msg);
+                            } else {
+                                this.$g.tipbox.error(res.msg);
+                            }
+                        }).catch((err) => {
+                            this.$g.tipbox.error(err.message);
+                        }).finally(() => {
+                            done()
+                            setTimeout(() => {
+                                instance.confirmButtonLoading = false
+                            }, 300)
+                            this.ajaxWorking = false;
+                        });
+                    } else {
+                        done()
+                    }
+                }
+            });
+        },
+        openGithub() {
+            window.open(`https://github.com/${this.github_repo}`, '_blank');
         }
     }
 })
@@ -154,11 +188,11 @@ export default defineComponent({
         }
 
         .desc {
-            margin-top: 10px;
+            margin-top: 15px;
         }
 
         .buttons {
-            margin-top: 10px;
+            margin-top: 15px;
         }
     }
 

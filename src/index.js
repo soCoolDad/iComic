@@ -1,9 +1,9 @@
-const fs = require('fs')
+const fs = require('fs-extra');
 const path = require('path')
 
 const express = require('express');
 const app = express();
-const port = process.env.SERVER_PORT || 3001;
+const port = process.env.SERVER_PORT || 3000;
 
 const helpers = require('./helper');
 const apis = require('./api');
@@ -33,6 +33,26 @@ console.log("init", "root dir:", rootDir);
 configDir = process.env.CONFIG_DIR || path.join(rootDir, "configs");
 console.log("init", "config dir:", configDir);
 
+// 初始化数据库
+dbDir = path.join(configDir, "db");
+if (fs.existsSync(dbDir) === false) {
+    fs.mkdirSync(dbDir, { recursive: true });
+}
+if (helpers.init.check(dbDir) === 0) {
+    //如果是第一次打开
+    // 1.创建数据库
+    helpers.init.init(dbDir);
+    // 2.如果配置目录不一致，更新插件
+    if (configDir !== path.join(rootDir, "configs")) {
+        //将配置文件夹复制到根目录
+        //更新插件和文件
+        fs.copySync(path.join(rootDir, "configs"), configDir, { overwrite: true });
+    }
+}
+
+helpers.db_query.init(dbDir);
+console.log("init", "db dir:", dbDir);
+
 // 初始化 plugin
 pluginDir = path.join(configDir, "plugin");
 if (fs.existsSync(pluginDir) === false) {
@@ -40,17 +60,6 @@ if (fs.existsSync(pluginDir) === false) {
 }
 helpers.plugin.init(pluginDir);
 console.log("init", "plugin dir:", pluginDir);
-
-// 初始化数据库
-dbDir = path.join(configDir, "db");
-if (fs.existsSync(dbDir) === false) {
-    fs.mkdirSync(dbDir, { recursive: true });
-}
-if (helpers.init.check(dbDir) === 0) {
-    helpers.init.init(dbDir);
-}
-helpers.db_query.init(dbDir);
-console.log("init", "db dir:", dbDir);
 
 //初始化库
 libraryDir = path.join(configDir, "library");
@@ -111,13 +120,13 @@ if (fs.existsSync(path.join(web_build_dir, "index.html"))) {
         res.sendFile(path.join(web_build_dir, 'index.html'));
     });
 
-    console.log("init", "/", "from", web_build_dir);
+    console.log("init", "server", "from", web_build_dir);
 } else {
     // Send Hellow
     app.get('/', (req, res) => {
         res.send('Welcome to iComic API!');
     });
-    console.log("init", "/");
+    console.log("init", "server", "/");
 }
 
 // 支持域名与反代

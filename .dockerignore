@@ -1,7 +1,7 @@
 node_modules
+web/node_modules
 .DS_Store
 .Dockerfile
 README.md
 .github/
 .vscode/
-configs/

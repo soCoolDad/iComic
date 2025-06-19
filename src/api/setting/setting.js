@@ -6,11 +6,11 @@ class setting {
         return {
             status: true,
             data: {
-                version: currentVersion
+                version: currentVersion,
+                github_repo: process.env.UPDATE_REPO
             }
         }
     }
-
 
     async getAllLang(req, res, helpers) {
         let items = helpers.plugin.getPluginsByType("language");
