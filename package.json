@@ -1,0 +1,28 @@
+{
+  "name": "iComic",
+  "version": "0.0.1",
+  "description": "A Node.js application for managing and displaying comics.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "all": "concurrently \"npm run start\" \"npm run dev --prefix web\"",
+    "dev": "npm run start"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "cheerio": "^1.1.0",
+    "chokidar": "^4.0.3",
+    "express": "^4.17.1",
+    "fs-extra": "^11.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "node-stream-zip": "^1.15.0",
+    "p-limit": "^6.2.0",
+    "yazl": "^3.3.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
