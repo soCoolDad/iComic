@@ -122,9 +122,7 @@ export default defineComponent({
 
                         this.ajaxWorking = true;
 
-                        this.$g.http.send('/api/setting/delete', 'post', {
-                            
-                        }).then((res) => {
+                        this.$g.http.send('/api/setting/update', 'post', {}).then((res) => {
                             if (res.status) {
                                 this.$g.tipbox.success(res.msg);
                             } else {

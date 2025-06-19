@@ -3,6 +3,6 @@
     "name": "English",
     "type": "language",
     "description": "English",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "need_install": false
 }
