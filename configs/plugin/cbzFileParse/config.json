@@ -1,0 +1,12 @@
+{
+    "id": "cbz_file_parse",
+    "name": "cbz文件解析",
+    "type": "file-parser",
+    "support_file": [
+        ".cbz"
+    ],
+    "description": "解析cbz文件，并返回符合iComic规范的config.json内容",
+    "author": "iComic",
+    "version": "0.0.1",
+    "need_install": false
+}

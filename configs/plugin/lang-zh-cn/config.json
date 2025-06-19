@@ -1,0 +1,8 @@
+{
+    "id": "lang_zh_cn",
+    "name": "中文(简体)",
+    "type": "language",
+    "description": "中文(简体)",
+    "version": "0.0.1",
+    "need_install": false
+}

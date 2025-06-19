@@ -1,0 +1,9 @@
+{
+    "name": "cbzFileParse",
+    "version": "0.0.1",
+    "description": "a cbz file parser for iComic",
+    "main": "main.js",
+    "scripts": {},
+    "dependencies": {},
+    "author": "iComic"
+}

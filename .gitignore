@@ -137,4 +137,10 @@ dist
 
 
 #iComic
-configs/
+configs/db/*
+configs/library/*
+#忽略其他的插件，只上传必要的插件，嘿嘿
+configs/plugin/*
+!configs/plugin/cbzFileParse/
+!configs/plugin/lang-en/
+!configs/plugin/lang-zh-cn/

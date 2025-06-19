@@ -1,0 +1,8 @@
+{
+    "id": "lang_en",
+    "name": "English",
+    "type": "language",
+    "description": "English",
+    "version": "0.0.1",
+    "need_install": false
+}
