@@ -23,6 +23,7 @@ class setting {
         let backupSize = 0, tempSize = 0, totalSize = 0;
         let backup_path = path.join(rootDir, '.backup');
         let temp_path = path.join(rootDir, '.temp');
+        let paths = [];
 
         // 递归计算文件夹大小的函数
         const calculateSize = (dirPath) => {
@@ -37,7 +38,10 @@ class setting {
             // 跳过node_modules和点开头的文件夹
             const dirName = path.basename(dirPath);
             if (dirName === 'node_modules' || dirName.startsWith('.')) {
-                return 0;
+                // 如果不是backup_path和temp_path文件夹，就返回0
+                if (paths.includes(dirPath) === false) {
+                    return 0;
+                }
             }
 
             let total = 0;
@@ -54,11 +58,6 @@ class setting {
             }
             return total;
         };
-
-        // let backup_path = path.join(rootDir, 'configs', 'library');
-        // let temp_path = path.join(rootDir, 'configs', 'plugin');
-
-        let paths = [];
 
         if (fs.existsSync(backup_path)) {
             paths.push(backup_path);
