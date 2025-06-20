@@ -4,9 +4,14 @@ const https = require('https');
 const cheerio = require('cheerio');
 
 class iComic_http {
+    timeout = 30000;
     constructor() {
         this.virtual_device = process.env.ICOMIC_VIRTUAL_DEVICE || ["ICOMIC/GETER V0.0.3"];
         this.virtual_device_index = process.env.ICOMIC_VIRTUAL_DEVICE_INDEX || 0;
+    }
+
+    setTimeout(timeout) {
+        this.timeout = timeout;
     }
 
     getHeader() {
@@ -28,6 +33,10 @@ class iComic_http {
     // 通过url发送POST请求
     async post(url, headers, data) {
         return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error(`[http] 请求超时: ${url}`));
+            }, this.timeout);
+
             try {
                 // 解析URL以获取主机名和路径
                 const urlObj = new URL(url);
@@ -42,7 +51,6 @@ class iComic_http {
                     hostname,
                     path,
                     method: 'POST',
-                    timeout: 60000,
                     headers: {
                         'Content-Type': 'text/html', // 默认内容类型为html
                         ...this.getHeader(),
@@ -79,12 +87,18 @@ class iComic_http {
                 req.end();
             } catch (error) {
                 reject(error);
+            } finally {
+                clearTimeout(timeout);
             }
         });
     }
 
     async get(url, headers) {
         return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error(`[http] 请求超时: ${url}`));
+            }, this.timeout);
+
             try {
                 const urlObj = new URL(url);
                 const httpModule = urlObj.protocol === 'https:' ? https : http;
@@ -93,7 +107,6 @@ class iComic_http {
                     hostname: urlObj.hostname,
                     path: urlObj.pathname + (urlObj.search || ''),
                     method: 'GET',
-                    timeout: 60000,
                     headers: {
                         ...this.getHeader(),
                         ...headers
@@ -124,6 +137,8 @@ class iComic_http {
                 req.end();
             } catch (error) {
                 reject(error);
+            } finally {
+                clearTimeout(timeout);
             }
         });
     }
@@ -209,9 +224,17 @@ class iComic_html {
 class iComicCtrl {
     #http;
     #html;
+    timeout = 30000;
     constructor() {
         this.#http = new iComic_http();
         this.#html = new iComic_html();
+
+        this.#http.setTimeout(this.timeout);
+    }
+
+    setHttpTimeout(timeout) {
+        this.timeout = timeout;
+        this.#http.timeout = timeout;
     }
 
     //读取文件

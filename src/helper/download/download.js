@@ -77,7 +77,7 @@ class ImageDownloader {
                     this.task.add_current_page_fail_count();
                     return { status: false, msg: err.message };
                 }
-                await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
     }
@@ -164,11 +164,11 @@ class download_task {
             const writeStream = fs.createWriteStream(filePath);
             const outputStream = zip.outputStream;
 
-            // 设置15秒超时防止永久挂起
+            // 设置5分钟超时防止永久挂起
             const timeout = setTimeout(() => {
                 cleanup();
                 reject(new Error(`[Timeout] 文件保存超时: ${filePath}`));
-            }, 15000);
+            }, 1000 * 60 * 5);
 
             // 统一清理函数
             const cleanup = () => {
@@ -347,62 +347,6 @@ class download_task {
             console.log("begin download page:", page_detail_title);
 
             this.set_current_page_count(page_detail_image_urls.length);
-
-            // for (let j = 0; j < page_detail_image_urls.length; j++) {
-            //     for (let k = 0; k < 5; k++) {
-            //         let image_url = page_detail_image_urls[j];
-            //         let image_name = `${page_detail_title}/${i}_${j}.png`;
-
-            //         console.log(`begin download ${page_detail_title} image:${j}:`, image_url);
-
-            //         let result = await iComic.get(image_url).then((res) => {
-            //             return { status: true, data: res.body };
-            //         }).catch((err) => {
-            //             return { status: false, msg: err.message };
-            //         });
-
-            //         if (result.status) {
-            //             //如果下载成功就继续下载下一张
-            //             //将下载的文件写入cbz
-            //             let img_data_buffer = result.data;
-
-            //             let img_result = await this.plugin.parseFile(img_data_buffer);
-
-            //             page_zip.addBuffer(img_result, image_name);
-
-            //             this.add_current_page_complete_count();
-
-            //             console.log(`begin download ${page_detail_title} image:${j}:`, "success");
-            //             //成功就退出for k
-            //             break;
-            //         } else {
-            //             //如果是最后一次尝试下载
-            //             if (k == 4) {
-            //                 this.add_current_page_fail_count();
-            //                 this.errors.push({
-            //                     page: i,
-            //                     image: j,
-            //                     image_url: image_url,
-            //                     error: result.msg
-            //                 });
-
-            //                 page_detail_has_error = true;
-            //             }
-
-            //             console.log(`begin download ${page_detail_title} image:${j}:`, "error", "retry:", (k + 1));
-            //         }
-
-            //         if (this.status != 1) {
-            //             //暂停下载
-            //             break;
-            //         }
-            //     }
-
-            //     if (this.status != 1) {
-            //         //暂停下载
-            //         break;
-            //     }
-            // }
 
             const downloader = new ImageDownloader(this, page_zip, page_detail_title, i, iComic);
             const { errors } = await downloader.downloadAll(page_detail_image_urls);
