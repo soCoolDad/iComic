@@ -201,11 +201,10 @@ export default defineComponent({
                 query: {
                     plugin_id: this.select_plugin,
                     library_id: this.curItem?.id,
-                },
-                params: {
-                    chapter_index: this.select_chapter
                 }
             });
+
+            sessionStorage.setItem(`${this.curItem?.id}_chapter_index`, String(this.select_chapter));
         },
         onComicClick(item: ComicItem) {
             //

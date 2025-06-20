@@ -34,8 +34,7 @@ const routes = [
   {
     path: "/reader",
     name: "reader",
-    component: () => import("../views/reader.vue"),
-    props: true
+    component: () => import("../views/reader.vue")
   }
 
   // 可继续添加其他路由
@@ -44,6 +43,6 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
-})
+});
 
 export default router

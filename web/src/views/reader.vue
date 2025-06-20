@@ -147,7 +147,6 @@ export default defineComponent({
             let library_id = String(this.$route.query.library_id);
             let chapter_index = 0;
 
-            this.chapter_index = chapter_index;
             //console.log(this.$route.query);
             if (!plugin_id) {
                 this.page_error = '阅读插件不存在';
@@ -179,11 +178,13 @@ export default defineComponent({
                     this.file = res.data;
                     this.file_page_list = res.data?.config?.page_list || [];
 
-                    // this.$route.params.chapter_index
-                    if (this.$route.params.chapter_index === undefined) {
+                    let local_chapter_index = sessionStorage.getItem(`${this.$route.query.library_id}_chapter_index`);
+
+                    if (local_chapter_index === null || local_chapter_index === undefined) {
                         this.chapter_index = res.data.read_page_progress
                     } else {
-                        this.chapter_index = Number(this.$route.params.chapter_index);
+                        this.chapter_index = Number(local_chapter_index);
+                        sessionStorage.removeItem(`${this.$route.query.library_id}_chapter_index`);
                     }
 
                     this.initItems();
@@ -214,7 +215,7 @@ export default defineComponent({
             //
             let current_chapter = this.current_chapter;
 
-            console.log('current_chapter', current_chapter);
+            //console.log('current_chapter', current_chapter);
 
             if (!current_chapter) {
                 return;
@@ -227,7 +228,7 @@ export default defineComponent({
                 image_urls.push(`/api/image/pageImage?pi=${this.$route.query.plugin_id}&li=${this.$route.query.library_id}&page=${this.chapter_index}&img=${region}`);
             });
 
-            console.log('image_urls', image_urls);
+            //console.log('image_urls', image_urls);
 
             this.items = image_urls;
 
