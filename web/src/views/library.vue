@@ -171,6 +171,7 @@ export default defineComponent({
             }).then((res) => {
                 if (res.status) {
                     this.$g.tipbox.success(res.msg);
+                    item.status = 1;
                     this.onParseChange(item);
                 } else {
                     this.$g.tipbox.error(res.msg);

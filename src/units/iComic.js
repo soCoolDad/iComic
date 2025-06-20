@@ -5,7 +5,7 @@ const cheerio = require('cheerio');
 
 class iComic_http {
     constructor() {
-        this.virtual_device = process.env.ICOMIC_VIRTUAL_DEVICE || ["iComic/get"];
+        this.virtual_device = process.env.ICOMIC_VIRTUAL_DEVICE || ["ICOMIC/GETER V0.0.3"];
         this.virtual_device_index = process.env.ICOMIC_VIRTUAL_DEVICE_INDEX || 0;
     }
 
@@ -42,6 +42,7 @@ class iComic_http {
                     hostname,
                     path,
                     method: 'POST',
+                    timeout: 60000,
                     headers: {
                         'Content-Type': 'text/html', // 默认内容类型为html
                         ...this.getHeader(),
@@ -92,6 +93,7 @@ class iComic_http {
                     hostname: urlObj.hostname,
                     path: urlObj.pathname + (urlObj.search || ''),
                     method: 'GET',
+                    timeout: 60000,
                     headers: {
                         ...this.getHeader(),
                         ...headers
@@ -127,14 +129,14 @@ class iComic_http {
     }
 
     virtual_device(device_index) {
-        let device = this.getDevice(device_index);
+        // let device = this.getDevice(device_index);
 
-        if (device['User-Agent']) {
-            this.virtual_device_index = device_index;
-            return true;
-        } else {
-            return false;
-        }
+        // if (device['User-Agent']) {
+        //     this.virtual_device_index = device_index;
+        //     return true;
+        // } else {
+        //     return false;
+        // }
     }
 }
 

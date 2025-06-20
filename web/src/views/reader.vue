@@ -214,15 +214,20 @@ export default defineComponent({
             //
             let current_chapter = this.current_chapter;
 
+            console.log('current_chapter', current_chapter);
+
             if (!current_chapter) {
                 return;
             }
 
             let image_urls = [] as Array<string>;
+            this.items = [];
 
             current_chapter.region.forEach(region => {
                 image_urls.push(`/api/image/pageImage?pi=${this.$route.query.plugin_id}&li=${this.$route.query.library_id}&page=${this.chapter_index}&img=${region}`);
             });
+
+            console.log('image_urls', image_urls);
 
             this.items = image_urls;
 
@@ -390,7 +395,7 @@ export default defineComponent({
                     }
 
                     :deep(.el-image__inner.is-loading) {
-                        display: none;
+                        display: inline-block;
                     }
 
                     .image-slot {
