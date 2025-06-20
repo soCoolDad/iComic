@@ -14,6 +14,20 @@ class iComic_http {
         this.timeout = timeout;
     }
 
+    normalizeUrl(url) {
+        if (!url) return '';
+
+        // 1. 去除首尾空格/换行
+        url = url.trim();
+
+        // 2. 替换连续的空白字符为单个空格（可选）
+        url = url.replace(/\s+/g, ' ');
+        url = url.replace(/[\r\n]+/g, '')
+
+        // 3. 进行URL编码
+        return encodeURI(url);
+    }
+
     getHeader() {
         if (this.virtual_device.length > 0) {
             let userAgent = this.virtual_device[this.virtual_device_index];
@@ -39,7 +53,7 @@ class iComic_http {
 
             try {
                 // 解析URL以获取主机名和路径
-                const urlObj = new URL(url);
+                const urlObj = new URL(this.normalizeUrl(url));
                 const hostname = urlObj.hostname;
                 const path = urlObj.pathname + (urlObj.search || '');
 
@@ -100,7 +114,7 @@ class iComic_http {
             }, this.timeout);
 
             try {
-                const urlObj = new URL(url);
+                const urlObj = new URL(this.normalizeUrl(url));
                 const httpModule = urlObj.protocol === 'https:' ? https : http;
 
                 const options = {

@@ -62,6 +62,20 @@ class SearchPlugin extends BasePlugin {
     this.placeholder = config.placeholder;
   }
 
+  // 保存文件扩展
+  async saveFileExtension() {
+    throw new Error('Not implemented');
+  }
+
+  // 保存块名称
+  async saveBlockName(detail_title,
+    page_detail_title,
+    url,
+    page_index,
+    url_index) {
+    throw new Error('Not implemented');
+  }
+
   // 搜索方法
   async search(query) {
     throw new Error('Not implemented');
@@ -79,6 +93,10 @@ class SearchPlugin extends BasePlugin {
 
   async parseFile(fileBuffer) {
     return fileBuffer;
+  }
+
+  async getPageDetailBlocks(block) {
+    throw new Error('Not implemented');
   }
 }
 

@@ -8,51 +8,45 @@ const yazl = require('yazl');
 const StreamZip = require('node-stream-zip');
 const { iComicCtrl } = require('../../units/iComic');
 
-class ImageDownloader {
-    constructor(task, page_zip, page_detail_title, i, iComic) {
+class BlockDownloader {
+    constructor(task, page_zip, page_detail_title, i) {
         this.task = task;
-        this.iComic = iComic;
         this.page_zip = page_zip;
         this.page_detail_title = page_detail_title;
         this.i = i;
         this.errors = [];
 
         // 动态并发控制配置
-        this.concurrency = Math.min(
-            Math.max(2, Math.floor(os.cpus().length * 1.5)),
-            5
-        );
-
+        let cpu_count = os.cpus().length;
+        this.concurrency = (this.task.plugin?.config?.concurrency || cpu_count);;
+        this.concurrency = Math.min(this.concurrency, cpu_count);
         // 使用pLimit控制并发
         this.limit = pLimit(this.concurrency);
     }
 
-    async downloadAll(image_urls) {
-        //过滤回车换行
-        let safe_image_urls = image_urls.map(element => {
-            return element.replace(/\r|\n|\s/g, "");
-        });
-
-        const downloadPromises = safe_image_urls.map((url, j) =>
+    async downloadAll(urls) {
+        const downloadPromises = urls.map((url, j) =>
             this.limit(() => this.downloadWithRetry(url, j))
         );
+
+        console.log(`开始下载`, urls.length, `个块，并发数:`, this.concurrency);
 
         const results = await Promise.all(downloadPromises);
 
         // 处理结果
-        results.forEach((result, j) => {
+        for (let j = 0; j < results.length; j++) {
+            let result = results[j];
+
             if (result.status) {
-                this.page_zip.addBuffer(result.data, `${this.page_detail_title}/${this.i}_${j}.png`);
+                let filename = await this.task.plugin.saveBlockName(this.task.name, this.page_detail_title, urls[j], this.i, j);
+
+                filename = this.task.safePathName(filename);
+
+                this.page_zip.addBuffer(result.data, filename);
             } else {
-                this.errors.push(`下载 ${this.page_detail_title}:${image_urls[j]} 出错:${result.msg}`);
-                // this.errors.push({
-                //     page: this.i,
-                //     image: j,
-                //     image_url: image_urls[j],
-                //     error: result.msg
-                // });
+                this.errors.push(`downloader ${this.page_detail_title}:block[${j}] 出错:${result.msg}`);
             }
-        });
+        }
 
         return { errors: this.errors };
     }
@@ -64,15 +58,21 @@ class ImageDownloader {
                     return { status: false, msg: '任务已暂停' };
                 }
 
-                console.log(`下载 ${this.page_detail_title}:${j}: 尝试 ${attempt}`, url);
-                const result = await this.iComic.get(url);
+                console.log(`downloader`, this.page_detail_title, j, `尝试`, attempt, url);
+
+                const result = await this.task.plugin.getPageDetailBlock(url);
+
+                if (result.status === false) {
+                    throw new Error(result.msg);
+                }
+
                 this.task.add_current_page_complete_count();
                 return {
                     status: true,
-                    data: await this.task.plugin.parseFile(result.body)
+                    data: await this.task.plugin.parseFile(result)
                 };
             } catch (err) {
-                console.log(`下载 ${this.page_detail_title}:${j} 出错:`, url, err.message);
+                console.log(`downloader`, this.page_detail_title, '块', j, '出错', url, err.message, err);
                 if (attempt === retries) {
                     this.task.add_current_page_fail_count();
                     return { status: false, msg: err.message };
@@ -209,7 +209,10 @@ class download_task {
     }
 
     safePathName(str) {
-        return str.replace(/[^a-zA-Z0-9\u4e00-\u9fa5 ]/g, '');
+        if (!str) return '';
+        // 保留：字母数字、中文、路径分隔符(/)、扩展名点(.)、连字符(-_)、空格
+        // 同时去除首尾空白字符
+        return str.trim().replace(/[^\w\u4e00-\u9fa5\/\.\- ]/g, '');
     }
 
     async begin() {
@@ -312,85 +315,91 @@ class download_task {
 
         //从上次断点继续下载
         for (let i = this.cur_page_index; i < page_count; i++) {
-            let page = pages[i];
+            try {
+                let page = pages[i];
 
-            //获取page详情
-            console.log("download page:", this.cur_page_index);
+                //获取page详情
+                console.log("download page:", this.cur_page_index);
 
-            let page_detail;
-            //循环获取page详情防止报错
-            for (let j = 0; j < 5; j++) {
-                try {
-                    page_detail = await this.plugin.getPageDetail(page);
+                let page_detail;
+                //循环获取page详情防止报错
+                for (let j = 0; j < 5; j++) {
+                    try {
+                        page_detail = await this.plugin.getPageDetail(page);
 
-                    if (page_detail?.status === false) {
-                        console.error(`重试第${j + 1}次`, `插件[${this.plugin.name}]获取[getPageDetail]失败:${page_detail?.msg}`);
-                    } else {
-                        break;
-                    }
-                } catch (e) {
-                    if (j == 4) {
-                        this.set_status(4);
-                        this.errors.push(`插件[${this.plugin.name}]获取[getPageDetail]失败:${e.message}`);
-                        return { status: false, msg: `插件[${this.plugin.name}]获取[getPageDetail]失败:${e.message}` }
+                        if (page_detail?.status === false) {
+                            console.error(`重试第${j + 1}次`, `插件[${this.plugin.name}]获取[getPageDetail]失败:${page_detail?.msg}`);
+                        } else {
+                            break;
+                        }
+                    } catch (e) {
+                        if (j == 4) {
+                            this.set_status(4);
+                            this.errors.push(`插件[${this.plugin.name}]获取[getPageDetail]失败:${e.message}`);
+                            return { status: false, msg: `插件[${this.plugin.name}]获取[getPageDetail]失败:${e.message}` }
+                        }
                     }
                 }
-            }
 
-            let page_zip = new yazl.ZipFile();
-            let page_zip_path = path.join(tmp_dir, `${i + 1}.part`);
-            let page_detail_title = this.safePathName(page_detail.title);
-            let page_detail_image_urls = page_detail.image_urls;
-            let page_detail_has_error = false;
+                let page_zip = new yazl.ZipFile();
+                let page_zip_path = path.join(tmp_dir, `${i + 1}.part`);
+                let page_detail_title = this.safePathName(page_detail.title);
+                let page_detail_blocks = page_detail.blocks;
+                let page_detail_has_error = false;
 
+                console.log("begin download page:", page_detail_title, "共:", page_detail_blocks.length, "个块");
 
-            console.log("begin download page:", page_detail_title);
+                this.set_current_page_count(page_detail_blocks.length);
 
-            this.set_current_page_count(page_detail_image_urls.length);
+                const downloader = new BlockDownloader(this, page_zip, page_detail_title, i, iComic);
+                const { errors } = await downloader.downloadAll(page_detail_blocks);
 
-            const downloader = new ImageDownloader(this, page_zip, page_detail_title, i, iComic);
-            const { errors } = await downloader.downloadAll(page_detail_image_urls);
+                this.errors = this.errors.concat(errors);
+                page_detail_has_error = errors.length > 0;
 
-            this.errors = this.errors.concat(errors);
-            page_detail_has_error = errors.length > 0;
+                console.log("save page:", page_detail_title, page_zip_path, "begin");
 
-            console.log("save page:", page_detail_title, page_zip_path, "begin");
+                //如果文件存在就删除文件
+                if (fs.existsSync(page_zip_path)) {
+                    fs.unlinkSync(page_zip_path);
+                }
 
-            //如果文件存在就删除文件
-            if (fs.existsSync(page_zip_path)) {
-                fs.unlinkSync(page_zip_path);
-            }
+                page_zip.end();
 
-            page_zip.end();
+                //提前存储cbz
+                let save_result = await this.saveFileByZip(page_zip, page_zip_path);
 
-            //提前存储cbz
-            let save_result = await this.saveFileByZip(page_zip, page_zip_path);
+                console.log("save page:", page_detail_title, page_zip_path, "complete");
 
-            console.log("save page:", page_detail_title, page_zip_path, "complete");
+                if (save_result !== true) {
+                    this.errors.push(`save page ${page_detail_title} to ${page_zip_path} error`);
+                    page_detail_has_error = true
+                }
 
-            if (save_result !== true) {
-                this.errors.push(`save page ${page_detail_title} to ${page_zip_path} error`);
-                page_detail_has_error = true
-            }
+                if (this.status != 1) {
+                    //暂停下载
+                    break;
+                }
 
-            if (this.status != 1) {
-                //暂停下载
+                this.cur_page_index++;
+
+                if (page_detail_has_error) {
+                    this.add_page_fail_count();
+                } else {
+                    this.add_page_complete_count();
+                }
+
+                console.log(`end download page ${page_detail_title} finished:`, `success:${this.page_complete_count}, fail:${this.page_fail_count}`);
+            } catch (error) {
+                this.errors.push(`处理page:${i}:失败:${error.message}`);
+                console.error(`处理page:${i}:失败:${error.message}`, error);
+                this.set_status(4);
                 break;
             }
-
-            this.cur_page_index++;
-
-            if (page_detail_has_error) {
-                this.add_page_fail_count();
-            } else {
-                this.add_page_complete_count();
-            }
-
-            console.log(`begin download page ${page_detail_title} finished:`, `success:${this.page_complete_count}, fail:${this.page_fail_count}`);
         }
 
         if (this.status == 1) {
-            let save_file_path = path.join(save_dir, this.name + ".cbz");
+            let save_file_path = path.join(save_dir, this.name + (await this.plugin.saveFileExtension()));
             let part_files = fs.readdirSync(tmp_dir)
                 .filter(file => path.extname(file) == ".part")
                 .sort((a, b) => parseInt(path.basename(a, ".part")) - parseInt(path.basename(b, ".part")));
@@ -398,10 +407,11 @@ class download_task {
             let part_zip = new yazl.ZipFile();
 
             // 动态并发控制配置
-            const concurrency = Math.min(
-                Math.max(2, Math.floor(os.cpus().length * 1.5)), // 基于CPU核心数
-                5 // 最大不超过5
-            );
+            let cpu_count = os.cpus().length;
+            let concurrency = 1;
+
+            concurrency = (this.plugin.config?.concurrency || cpu_count);;
+            concurrency = Math.min(concurrency, cpu_count);
 
             const limit = pLimit(concurrency);
             let completed = 0;

@@ -271,9 +271,10 @@ export default defineComponent({
             font-size: 18px;
         }
         .errorBox{
-            min-height: 300px;
-            max-width: 500px;
+            min-height: 200px;
+            max-height: 350px;
             overflow: auto;
+            padding-bottom: 10px;
             .scrollBox{
                 .scrollItem{
                     list-style-type: decimal;
