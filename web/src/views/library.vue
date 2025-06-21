@@ -12,12 +12,33 @@
             <el-empty description="请先扫描一下库吧" />
         </div>
         <div class="has_data" v-else>
-            <el-row :gutter="20">
-                <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" class="padding-button-20" v-for="item in list"
-                    :key="item.id">
-                    <comic :data="item" @click="onComicClick(item)" />
-                </el-col>
-            </el-row>
+            <div class="data_box" v-if="continues.length > 0">
+                <div class="title">继续阅读</div>
+                <el-row :gutter="20">
+                    <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" class="padding-button-20"
+                        v-for="item in continues" :key="item.id">
+                        <comic :data="item" @click="onComicClick(item)" />
+                    </el-col>
+                </el-row>
+            </div>
+            <div class="data_box" v-if="new_adds.length > 0">
+                <div class="title">新添加</div>
+                <el-row :gutter="20">
+                    <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" class="padding-button-20"
+                        v-for="item in new_adds" :key="item.id">
+                        <comic :data="item" @click="onComicClick(item)" />
+                    </el-col>
+                </el-row>
+            </div>
+            <div class="data_box">
+                <div class="title">所有文件</div>
+                <el-row :gutter="20">
+                    <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" class="padding-button-20" v-for="item in list"
+                        :key="item.id">
+                        <comic :data="item" @click="onComicClick(item)" />
+                    </el-col>
+                </el-row>
+            </div>
         </div>
         <div class="hide">
             <el-dialog v-model="showReadTo" :title="curItem?.name" width="500" align-center>
@@ -106,8 +127,8 @@ export default defineComponent({
             }
         },
         options() {
-            const MAX_GROUP_SIZE = 10; // 每组最大数量
-            let newOptions = [];
+            const MAX_GROUP_SIZE = 50; // 每组最大数量
+            let newOptions = [] as any[];
 
             // 1. 生成原始选项列表
             const rawOptions = this.chapter_list.map((item, index) => ({
@@ -142,6 +163,8 @@ export default defineComponent({
             isUnmounted: false,
             ajaxWorking: false,
             curItem: {} as ComicItem,
+            new_adds: [] as ComicItem[],
+            continues: [] as ComicItem[],
             list: [] as ComicItem[],
             showReadTo: false,
             plugin_list: [] as plugin_reader_item[],
@@ -294,7 +317,24 @@ export default defineComponent({
 
             this.$g.http.send('/api/library/getAllLibrary', 'get').then((res) => {
                 if (res.status) {
-                    this.list = res.data;
+                    let continues = [] as ComicItem[];
+                    let new_adds = [] as ComicItem[];
+                    let list = res.data;
+
+                    //按照名称排序
+                    list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+
+                    list.forEach((item) => {
+                        if (item.status == 2 && item.read_page_progress > 0) {
+                            continues.push(item);
+                        } else if (item.status == 0) {
+                            new_adds.push(item);
+                        }
+                    });
+
+                    this.list = list;
+                    this.continues = continues;
+                    this.new_adds = new_adds;
                 } else {
                     this.$g.tipbox.error(res.msg);
                 }
@@ -363,6 +403,17 @@ export default defineComponent({
 
     .padding-button-20 {
         padding-bottom: 20px;
+    }
+
+    .data_box{
+        padding: 0px 0;
+        margin: 0px 0;
+        color: #353535;
+        .title{
+            font-size: 18px;
+            font-weight: 600;
+            padding: 15px 0;
+        }
     }
 
     .readToBox {

@@ -81,7 +81,8 @@ interface file_item {
     page_count: number,
     author: string,
     description: string,
-    status: number
+    status: number,
+    read_page_progress: number
 }
 
 interface page_list_item {
@@ -114,8 +115,8 @@ export default defineComponent({
             return this.file_page_list[this.chapter_index];
         },
         options() {
-            const MAX_GROUP_SIZE = 10; // 每组最大数量
-            let newOptions = [];
+            const MAX_GROUP_SIZE = 50; // 每组最大数量
+            let newOptions = [] as any[];
 
             // 1. 生成原始选项列表
             const rawOptions = this.file_page_list.map((item, index) => ({

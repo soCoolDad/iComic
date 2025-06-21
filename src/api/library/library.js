@@ -96,7 +96,7 @@ class library {
         let library_id = req.body.library_id || req.query.library_id;
         let read_page_progress = req.body.read_page_progress || req.query.read_page_progress;
 
-        if (!library_id || !read_page_progress) {
+        if (!library_id || !read_page_progress === undefined) {
             return {
                 status: false,
                 msg: "参数错误"
