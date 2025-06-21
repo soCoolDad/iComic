@@ -198,7 +198,11 @@ export default defineComponent({
                         }).finally(() => {
                             done()
                             setTimeout(() => {
-                                instance.confirmButtonLoading = false
+                                instance.confirmButtonLoading = false;
+
+                                // window.location.reload();
+                                // 刷新页面
+                                window.location.reload();
                             }, 300)
                             this.ajaxWorking = false;
                         });

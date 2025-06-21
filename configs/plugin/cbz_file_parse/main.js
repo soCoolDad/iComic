@@ -405,6 +405,9 @@ class Cbz_File_Parse extends FileParserPlugin {
                 if (stat.isDirectory()) {
                     // 排除node_modules目录
                     if (file === 'node_modules') continue;
+                    // 排除.开头的目录
+                    if (file.startsWith('.')) continue;
+                    
                     scanDir(filePath); // 递归处理子目录
                 } else if (stat.isFile()) {
                     // 排除json文件

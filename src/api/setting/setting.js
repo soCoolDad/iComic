@@ -212,6 +212,16 @@ class setting {
             return { status: false, msg: error.message };
         }
     }
+
+    async reboot(req, res, helpers) {
+        try {
+            const updater = new UpdateSystem();
+            const result = await updater.reboot();
+            return result;
+        } catch (error) {
+            return { status: false, msg: error.message };
+        }
+    }
 }
 
 module.exports = setting

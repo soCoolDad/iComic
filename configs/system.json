@@ -4,5 +4,6 @@
     ],
     "ICOMIC_VIRTUAL_DEVICE_INDEX": 0,
     "LANGUAGE": "lang_zh_cn",
-    "UPDATE_REPO": "soCoolDad/iComic"
+    "UPDATE_REPO": "soCoolDad/iComic",
+    "HTTP_RETRY": 3
 }

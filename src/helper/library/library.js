@@ -40,106 +40,116 @@ class library {
      * library status 0已添加未解析 1解析中 2解析完成 3解析失败
     */
     async scan(helpers) {
-        // 先清空library表
-        helpers.db_query.run('DELETE FROM library');
-        // 清空library_tag表
-        helpers.db_query.run('DELETE FROM library_tag');
+        // 1. 获取当前数据库中的所有文件记录
+        const existingRecords = helpers.db_query.all('SELECT path, config_path FROM library');
+        const existingPaths = new Set(existingRecords.map(record => record.path));
+        const existingConfigPaths = new Set(existingRecords.map(record => record.config_path));
 
+        // 2. 扫描文件系统获取最新文件列表
         let plugins = helpers.plugin.getPluginsByType('file-parser');
-        let scan_files = [];
-
-        for (let i = 0; i < plugins.length; i++) {
-            let plugin = plugins[i];
+        let scanFiles = [];
+        for (let plugin of plugins) {
             try {
-                scan_files = scan_files.concat(await plugin.scan(this.libraryDir));
+                scanFiles = scanFiles.concat(await plugin.scan(this.libraryDir));
             } catch (error) {
-                console.log(error.message);
-                continue;
+                console.error(`插件扫描失败: ${plugin.id}`, error.message);
             }
         }
 
-        /*处理返回的文件
-        *scan_file={
-        *   name:"xxx",
-        *   path:"xxx",
-        *   config_path:"xxx",
-        *   plugin_id:"xxx",
-        *   config:{}
-        *}
-        */
+        // 3. 找出需要处理的文件（新增/更新）
+        const newOrUpdatedFiles = scanFiles.filter(file => {
+            // 文件路径不存在于数据库 -> 新增
+            if (!existingPaths.has(file.path)) return true;
 
-        let scan_file_count = 0;
-        for (let i = 0; i < scan_files.length; i++) {
-            let scan_file = scan_files[i];
-            let libraryId;
-            let config = scan_file.config;
-            let file_name, file_path, config_path,plugin_id;
+            return false;
+        });
 
-            file_name = scan_file.name || "";
-            file_path = scan_file.path;
-            config_path = scan_file.config_path;
-            plugin_id = scan_file.plugin_id;
+        // 4. 找出需要删除的文件（数据库中存在但文件系统中不存在）
+        const deletedFiles = existingRecords.filter(record => {
+            return !scanFiles.some(file => file.path === record.path) &&
+                !fs.existsSync(record.path); // 双重验证
+        });
 
-            if (config) {
-                try {
-                    // 有config.json，插入library表
-                    const info = helpers.db_query.run(
-                        `INSERT INTO library (name, page_count, author, description, path, config_path, plugin_id,status)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+        // 5. 处理新增/更新的文件
+        let addedCount = 0;
+        for (let file of newOrUpdatedFiles) {
+            try {
+                const config = file.config;
+                const isNew = !existingPaths.has(file.path);
+
+                // 新增记录
+                if (isNew) {
+                    helpers.db_query.run(
+                        `INSERT INTO library (name, page_count, author, description, path, config_path, plugin_id, status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
                         [
-                            config.name || file_name,
-                            config.page_count || 0,
-                            config.author || '',
-                            config.description || '',
-                            file_path,
-                            config_path,
-                            plugin_id
+                            config?.name || path.basename(file.path),
+                            config?.page_count || 0,
+                            config?.author || '',
+                            config?.description || '',
+                            file.path,
+                            file.config_path,
+                            file.plugin_id
                         ]
                     );
-
-                    libraryId = info.lastInsertRowid;
-
-                    // 处理tags
-                    if (Array.isArray(config.tags)) {
-                        for (const tagName of config.tags) {
-                            if (!tagName) continue;
-                            // 查找tag是否已存在
-                            let tag = helpers.db_query.get('SELECT id FROM tag WHERE name = ?', [tagName]);
-                            let tagId;
-                            if (!tag) {
-                                // 不存在则插入
-                                const tagInfo = helpers.db_query.run('INSERT INTO tag (name) VALUES (?)', [tagName]);
-                                tagId = tagInfo.lastInsertRowid;
-                            } else {
-                                tagId = tag.id;
-                            }
-                            // 建立library_tag关联
-                            helpers.db_query.run(
-                                'INSERT OR IGNORE INTO library_tag (library_id, tag_id) VALUES (?, ?)',
-                                [libraryId, tagId]
-                            );
-                        }
-                    }
-
-                    //存储config的json到config_path
-                    try {
-                        fs.writeFileSync(config_path, JSON.stringify(config, null, 2));
-                        scan_file_count++;
-                    } catch (error) {
-                        console.log(`save ${config.name} config to ${config_path} failed`, error);
-                    }
-                } catch (error) {
-                    console.log(`save ${config.name} config to db failed`, error);
+                    addedCount++;
                 }
-            } else {
-                //不做任何动作
+
+                // 处理标签（仅新增记录或配置更新时）
+                if (config?.tags && Array.isArray(config.tags)) {
+                    const libraryId = isNew ?
+                        helpers.db_query.get('SELECT last_insert_rowid() as id').id :
+                        helpers.db_query.get('SELECT id FROM library WHERE path = ?', [file.path]).id;
+
+                    for (const tagName of config.tags) {
+                        if (!tagName) continue;
+
+                        let tag = helpers.db_query.get('SELECT id FROM tag WHERE name = ?', [tagName]);
+                        if (!tag) {
+                            helpers.db_query.run('INSERT INTO tag (name) VALUES (?)', [tagName]);
+                            tag = { id: helpers.db_query.get('SELECT last_insert_rowid() as id').id };
+                        }
+
+                        helpers.db_query.run(
+                            'INSERT OR IGNORE INTO library_tag (library_id, tag_id) VALUES (?, ?)',
+                            [libraryId, tag.id]
+                        );
+                    }
+                }
+
+                // 保存配置文件（如果存在）
+                if (config && file.config_path) {
+                    fs.writeFileSync(file.config_path, JSON.stringify(config, null, 2));
+                }
+            } catch (error) {
+                console.error(`处理文件失败: ${file.path}`, error);
+            }
+        }
+
+        // 6. 处理删除的文件
+        let deletedCount = 0;
+        for (let record of deletedFiles) {
+            try {
+                helpers.db_query.run('DELETE FROM library WHERE path = ?', [record.path]);
+                helpers.db_query.run('DELETE FROM library_tag WHERE library_id = ?', [record.id]);
+                helpers.db_query.run('DELETE FROM library_progress WHERE library_id = ?', [record.id]);
+
+                deletedCount++;
+            } catch (error) {
+                console.error(`删除记录失败: ${record.path}`, error);
             }
         }
 
         return {
             status: true,
-            msg: `发现${scan_files.length}个文件`
-        }
+            msg: `扫描完成。新增: ${addedCount}, 删除: ${deletedCount}`,
+            stats: {
+                total: scanFiles.length,
+                added: addedCount,
+                deleted: deletedCount,
+                unchanged: scanFiles.length - addedCount
+            }
+        };
     }
 
     /**

@@ -106,6 +106,7 @@ class FileParserPlugin extends BasePlugin {
     super(id, name, config);
     this.type = 'file-parser';
     this.support_file = config.support_file;
+    this.content_type = config.content_type;
     this.path = path;
   }
 

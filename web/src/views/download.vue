@@ -37,7 +37,7 @@
             </div>
             <div class="hasData" v-else>
                 <el-table :data="list" stripe style="width: 100%">
-                    <el-table-column label="封面">
+                    <el-table-column label="封面" width="130">
                         <template #default="scope">
                             <div class="cover_image">
                                 <el-image class="image" fit="cover" loading="lazy" :src="scope.row.cover_image" lazy />
@@ -57,14 +57,14 @@
                                 </div>
                                 <div class="description">
                                     <div>简介</div>
-                                    <div>
+                                    <div class="showTowLine">
                                         {{ scope.row.description }}
                                     </div>
                                 </div>
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column label="下载">
+                    <el-table-column label="下载" width="130">
                         <template #default="scope">
                             <div class="downloadBtnBox">
                                 <el-button type="primary" @click="handleDownload(scope.row)">下载</el-button>
@@ -109,7 +109,7 @@ export default defineComponent({
         load() {
             this.ajaxWorking = true;
             this.$g.http.send('/api/plugin/getAllPlugins', 'get').then((res) => {
-                console.log('onLoad success', res);
+                //console.log('onLoad success', res);
                 let plugins: Array<{ name: string, id: string, placeholder: string }> = [];
 
                 (res.data || []).map(item => {
@@ -162,9 +162,9 @@ export default defineComponent({
                 this.searched = true;
             });
         },
-        handleDownload(row){
+        handleDownload(row) {
             // 
-            if(this.ajaxWorking){
+            if (this.ajaxWorking) {
                 return;
             }
 
@@ -215,18 +215,30 @@ export default defineComponent({
     .text-right {
         text-align: right;
     }
-    .cover_image{
-        .image{
+
+    .cover_image {
+        .image {
             width: 110px;
             height: 150px;
             border-radius: 5px;
         }
     }
-    .searchRetBox{
-        padding:30px 0;
+
+    .searchRetBox {
+        padding: 30px 0;
     }
-    .downloadBtnBox{
-        text-align: center;
+
+    .downloadBtnBox {
+        text-align: left;
+    }
+
+    .showTowLine {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
     }
 }
 </style>

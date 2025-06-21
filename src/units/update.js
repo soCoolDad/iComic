@@ -85,7 +85,7 @@ class UpdateSystem {
 
         // 修改后的执行方式
         execSync(`zip -r ${backupPath} . -x "node_modules/*" "web/node_modules/*" ".backup/*" ".temp/*"`, {
-            stdio: 'ignore',  // 完全忽略输出
+            stdio: 'inherit',  // 正常输出
             maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
         });
 
@@ -102,7 +102,7 @@ class UpdateSystem {
 
         const tempFile = path.join(CONFIG.tempDir, 'update.zip');
         execSync(`curl -L "${asset}" -o ${tempFile}`, {
-            stdio: 'ignore',  // 完全忽略输出
+            stdio: 'inherit',  // 正常输出
             maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
         });
 
@@ -125,8 +125,11 @@ class UpdateSystem {
     async applyUpdate(zipPath) {
         try {
             console.log('update', '解压更新包...');
-            execSync(`unzip -o ${zipPath} -d ${CONFIG.tempDir}/new`, {
-                stdio: 'ignore',  // 完全忽略输出
+
+            let temp_files_dir = path.join(CONFIG.tempDir, Date.now().toString());
+
+            execSync(`unzip -o ${zipPath} -d ${temp_files_dir}`, {
+                stdio: 'inherit',  // 正常输出
                 maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
             });
 
@@ -136,7 +139,7 @@ class UpdateSystem {
             //查找new目录下真正的项目文件目录
             //压缩包目录是new/icomicvxxx/package.json
             //我需要依靠package.json文件来找到项目文件目录
-            const newDir = path.join(CONFIG.tempDir, 'new');
+            const newDir = temp_files_dir;
             const entries = await fs.readdir(newDir);
             let sourceDir = newDir;
 
@@ -154,7 +157,7 @@ class UpdateSystem {
 
             // 使用rsync原子替换（修改后的路径）
             execSync(`rsync -a ${sourceDir}/ ${CONFIG.rootDir}/`, {
-                stdio: 'ignore',
+                stdio: 'inherit',  // 正常输出
                 maxBuffer: 1024 * 1024 * 100
             });
 
@@ -169,12 +172,12 @@ class UpdateSystem {
 
             console.log('update', '安装新依赖...');
             execSync('cnpm install --quiet', {
-                stdio: 'ignore',  // 完全忽略输出
+                stdio: 'inherit',  // 正常输出
                 maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
             });
 
             execSync('cd web && cnpm install --quiet && cnpm run build --silent', {
-                stdio: 'ignore',  // 完全忽略输出
+                stdio: 'inherit',  // 正常输出
                 maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
             });
 
@@ -188,14 +191,14 @@ class UpdateSystem {
         console.log('update', '正在回滚...');
 
         execSync(`unzip -o ${backupPath} -d ${CONFIG.rootDir}`, {
-            stdio: 'ignore',  // 完全忽略输出
+            stdio: 'inherit',  // 正常输出
             maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
         });
 
         console.log('update', '回滚完成，请重启应用');
     }
 
-    reboot() {
+    async reboot() {
         setTimeout(() => {
             // 改为使用PM2重启
             try {
@@ -208,6 +211,8 @@ class UpdateSystem {
             }
             process.exit(0);  // 确保进程退出
         }, 1000);
+
+        return { status: true, msg: '即将重启...' };
     }
     // 主流程
     async execute() {
@@ -245,7 +250,7 @@ class UpdateSystem {
 
             return { status: false, msg: error.message };
         } finally {
-            this.reboot();
+            await this.reboot();
         }
     }
 }

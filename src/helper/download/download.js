@@ -219,6 +219,7 @@ class download_task {
         //清空错误
         this.errors = [];
 
+        //console.log(`内存使用: ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`);
         console.log("download", this.name);
 
         if (!this.plugin && this.plugin_id) {
@@ -242,19 +243,19 @@ class download_task {
 
                 if (book_detail?.status === false) {
                     console.error(`重试第${i + 1}次`, `插件[${this.plugin.name}]获取[getDetail]失败:${book_detail.msg}`);
+
+                    if(i == 4){
+                        throw new Error(book_detail.msg);   
+                    }
                 } else {
                     break;
                 }
             } catch (error) {
-                if (i == 4) {
-                    this.set_status(4);
-                    this.errors.push(`插件[${this.plugin.name}]获取[getDetail]失败:${error.message}`);
-                    return { status: false, msg: `插件[${this.plugin.name}]获取[getDetail]失败:${error.message}` }
-                }
+                this.set_status(4);
+                this.errors.push(`插件[${this.plugin.name}]获取[getDetail]失败:${error.message}`);
+                return { status: false, msg: `插件[${this.plugin.name}]获取[getDetail]失败:${error.message}` }
             }
         }
-
-        console.log("get book detail", book_detail);
 
         this.errors = [];
         //从详情里获取标题也页面配置
@@ -303,6 +304,8 @@ class download_task {
                 if (save_cover_image_success == true) {
                     console.log("save cover success:", cover_image_path);
                 }
+
+                cbz_cover_file = null;
             } else {
                 console.log("download cover error:", result.msg);
             }
@@ -329,15 +332,16 @@ class download_task {
 
                         if (page_detail?.status === false) {
                             console.error(`重试第${j + 1}次`, `插件[${this.plugin.name}]获取[getPageDetail]失败:${page_detail?.msg}`);
+                            if(j == 4){
+                                throw new Error(page_detail?.msg);
+                            }
                         } else {
                             break;
                         }
                     } catch (e) {
-                        if (j == 4) {
-                            this.set_status(4);
-                            this.errors.push(`插件[${this.plugin.name}]获取[getPageDetail]失败:${e.message}`);
-                            return { status: false, msg: `插件[${this.plugin.name}]获取[getPageDetail]失败:${e.message}` }
-                        }
+                        this.set_status(4);
+                        this.errors.push(`插件[${this.plugin.name}]获取[getPageDetail]失败:${e.message}`);
+                        return { status: false, msg: `插件[${this.plugin.name}]获取[getPageDetail]失败:${e.message}` }
                     }
                 }
 
@@ -375,6 +379,9 @@ class download_task {
                     this.errors.push(`save page ${page_detail_title} to ${page_zip_path} error`);
                     page_detail_has_error = true
                 }
+
+                //释放内存？？？
+                page_zip = null;
 
                 if (this.status != 1) {
                     //暂停下载
@@ -424,8 +431,10 @@ class download_task {
                         const zipPath = path.join(tmp_dir, file);
                         const fileNum = parseInt(path.basename(file, ".part"));
 
+                        let read_zip = null;
+
                         try {
-                            const read_zip = new StreamZip.async({ file: zipPath });
+                            read_zip = new StreamZip.async({ file: zipPath });
                             try {
                                 const entries = await read_zip.entries();
 
@@ -436,7 +445,8 @@ class download_task {
                                     }
                                 }
                             } finally {
-                                await read_zip.close();
+                                read_zip && await read_zip.close();
+                                read_zip = null;
                             }
 
                             completed++;
@@ -454,6 +464,7 @@ class download_task {
 
                 let save_result = await this.saveFileByZip(part_zip, save_file_path);
 
+                //清除内存占用？？？
                 part_zip = null;
 
                 if (!save_result) throw new Error('最终CBZ文件保存失败');
@@ -489,6 +500,8 @@ class download_task {
                 fs.writeFileSync(json_path, JSON.stringify(config_json, null, 2));
 
                 console.log(`download ${this.name} finish`, `success:${this.page_complete_count},fail:${this.page_fail_count}`);
+
+                //console.log(`内存使用: ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`);
 
                 //下载完成
                 this.set_status(2);

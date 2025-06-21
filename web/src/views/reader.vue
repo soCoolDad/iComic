@@ -27,7 +27,7 @@
             <!-- 虚拟滚动开始 -->
             <div class="scroller" ref="scroller">
                 <div class="scroller_content">
-                    <div class="image_box" v-for="item in items">
+                    <div class="image_box" v-for="item in items" v-if="plugin_content_type == 'image'">
                         <el-image class="image" loading="lazy" :src="item" lazy>
                             <template #placeholder>
                                 <div class="image-slot">
@@ -35,6 +35,9 @@
                                 </div>
                             </template>
                         </el-image>
+                    </div>
+                    <div class="text_box" v-for="item in items" v-if="plugin_content_type == 'text'">
+                        <div class="text" v-text="item"></div>
                     </div>
                 </div>
             </div>
@@ -46,11 +49,14 @@
                     </el-col>
                     <el-col :span="12" :xs="16">
                         <!-- file_page_list -->
-                        <el-select @change="onSelectChange()" v-model="chapter_index" placeholder="select chapter">
+                        <!-- <el-select @change="onSelectChange()" v-model="chapter_index" placeholder="select chapter">
                             <el-option v-for="(item, index) in file_page_list" :label="item.title" :value="index">
                                 {{ item.title }}
                             </el-option>
-                        </el-select>
+                        </el-select> -->
+                        <el-cascader style="width: 100%;" :options="options" :show-all-levels="false"
+                            v-model="cascader_value" placeholder="select chapter"
+                            @change="onSelectChange()"></el-cascader>
                     </el-col>
                     <el-col :span="6" :xs="4">
                         <el-button circle type="primary" @click="handleNext" :icon="ArrowRightBold"></el-button>
@@ -86,6 +92,14 @@ interface page_list_item {
 export default defineComponent({
     name: 'reader',
     computed: {
+        cascader_value: {
+            get() {
+                return this.chapter_index;
+            },
+            set(val) {
+                this.chapter_index = val[val.length - 1]; // 通常取最后一级的值
+            }
+        },
         current_title() {
             let name = this.file?.name;
             let title = this.file_page_list[this.chapter_index]?.title;
@@ -98,11 +112,42 @@ export default defineComponent({
         },
         current_chapter() {
             return this.file_page_list[this.chapter_index];
+        },
+        options() {
+            const MAX_GROUP_SIZE = 10; // 每组最大数量
+            let newOptions = [];
+
+            // 1. 生成原始选项列表
+            const rawOptions = this.file_page_list.map((item, index) => ({
+                value: index,
+                label: item.title
+            }));
+
+            // 2. 分组处理
+            if (rawOptions.length > MAX_GROUP_SIZE) {
+                const groupCount = Math.ceil(rawOptions.length / MAX_GROUP_SIZE);
+
+                for (let i = 0; i < groupCount; i++) {
+                    const startIdx = i * MAX_GROUP_SIZE;
+                    const endIdx = startIdx + MAX_GROUP_SIZE;
+                    const groupItems = rawOptions.slice(startIdx, endIdx);
+
+                    newOptions.push({
+                        value: `${startIdx}-${endIdx}`,
+                        label: `${startIdx}-${endIdx}`,
+                        children: groupItems
+                    });
+                }
+            } else {
+                newOptions = rawOptions; // 不足10个直接返回
+            }
+
+            return newOptions;
         }
     },
     watch: {
         chapter_index(newVal) {
-            //console.log("change page", newVal, oldVal);
+            console.log("change page", newVal);
             this.send_read_progress(newVal);
         }
     },
@@ -116,7 +161,8 @@ export default defineComponent({
             pages: [],
             chapter_index: 0,
             items: [] as Array<string>,
-            show_bar: true
+            show_bar: true,
+            plugin_content_type: ""
         }
     },
     mounted() {
@@ -170,24 +216,13 @@ export default defineComponent({
 
             this.page_loading = true;
 
-            this.$g.http.send('/api/library/getLibraryById', 'post', {
+            let getLibraryById = this.$g.http.send('/api/library/getLibraryById', 'post', {
                 library_id: this.$route.query.library_id,
                 need_config: true
             }).then((res) => {
                 if (res.status) {
                     this.file = res.data;
                     this.file_page_list = res.data?.config?.page_list || [];
-
-                    let local_chapter_index = sessionStorage.getItem(`${this.$route.query.library_id}_chapter_index`);
-
-                    if (local_chapter_index === null || local_chapter_index === undefined) {
-                        this.chapter_index = res.data.read_page_progress
-                    } else {
-                        this.chapter_index = Number(local_chapter_index);
-                        sessionStorage.removeItem(`${this.$route.query.library_id}_chapter_index`);
-                    }
-
-                    this.initItems();
                 } else {
                     this.page_error = res.msg;
                     this.$g.tipbox.error(res.msg);
@@ -199,6 +234,35 @@ export default defineComponent({
             }).finally(() => {
                 //...
                 this.page_loading = false;
+            });
+
+            let getPluginById = this.$g.http.send('/api/plugin/getPluginById', 'post', {
+                plugin_id: this.$route.query.plugin_id
+            }).then((res) => {
+                if (res.status) {
+                    //
+                    this.plugin_content_type = res.data.content_type;
+                } else {
+                    this.$g.tipbox.error(res.msg);
+                }
+            }).catch((err) => {
+                this.$g.tipbox.error(err.message);
+            });
+
+            //
+            let load_queue = [getLibraryById, getPluginById];
+
+            Promise.all(load_queue).then(() => {
+                let local_chapter_index = sessionStorage.getItem(`${this.$route.query.library_id}_chapter_index`);
+
+                if (local_chapter_index === null || local_chapter_index === undefined) {
+                    this.chapter_index = this.file?.read_page_progress
+                } else {
+                    this.chapter_index = Number(local_chapter_index);
+                    sessionStorage.removeItem(`${this.$route.query.library_id}_chapter_index`);
+                }
+
+                this.initItems();
             });
         },
         getPageRange(pageIndex) {
@@ -412,6 +476,15 @@ export default defineComponent({
                         margin-top: 0;
                         padding-top: 0;
                         border-top: 1px solid rgba(0, 0, 0, 0.1);
+                    }
+                }
+
+                .text_box {
+                    margin: 0; // 清除默认外边距
+                    padding: 0; // 清除默认内边距
+
+                    +.text_box {
+                        margin-top: 0; // 清除相邻图片盒子和文本盒子的间距
                     }
                 }
             }

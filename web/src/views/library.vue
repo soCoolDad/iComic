@@ -22,6 +22,7 @@
         <div class="hide">
             <el-dialog v-model="showReadTo" :title="curItem?.name" width="500" align-center>
                 <div class="readToBox" v-if="curItem?.status == 0 || curItem?.status == 3">
+                    <div class="tips desc">{{ curItem?.description }}</div>
                     <div class="tips title">该文件还未解析</div>
                     <div class="tips">请选择解析插件进行解析</div>
                     <el-select v-model="select_plugin" placeholder="select plugin">
@@ -38,12 +39,16 @@
                     </div>
                 </div>
                 <div class="readToBox" v-else-if="curItem?.status == 2">
+                    <div class="tips desc">{{ curItem?.description }}</div>
                     <div class="tips title">选择章节</div>
-                    <el-select v-model="select_chapter" placeholder="select chapter">
+                    <!-- <el-select v-model="select_chapter" placeholder="select chapter">
                         <el-option v-for="(item, index) in chapter_list" :label="item.title" :value="index">
                             {{ item.title }}
                         </el-option>
-                    </el-select>
+                    </el-select> -->
+                    <el-cascader style="width: 100%;" :options="options" :show-all-levels="false"
+                        v-model="cascader_value" placeholder="select chapter"></el-cascader>
+
                     <div class="tips">请选择解析插件进行阅读</div>
                     <el-select v-model="select_plugin" placeholder="select plugin">
                         <el-option v-for="item in plugin_list" :label="item.name" :value="item.id">
@@ -90,6 +95,47 @@ export default defineComponent({
     name: 'library',
     components: {
         comic
+    },
+    computed: {
+        cascader_value: {
+            get() {
+                return this.select_chapter;
+            },
+            set(val) {
+                this.select_chapter = val[val.length - 1]; // 通常取最后一级的值
+            }
+        },
+        options() {
+            const MAX_GROUP_SIZE = 10; // 每组最大数量
+            let newOptions = [];
+
+            // 1. 生成原始选项列表
+            const rawOptions = this.chapter_list.map((item, index) => ({
+                value: index,
+                label: item.title
+            }));
+
+            // 2. 分组处理
+            if (rawOptions.length > MAX_GROUP_SIZE) {
+                const groupCount = Math.ceil(rawOptions.length / MAX_GROUP_SIZE);
+
+                for (let i = 0; i < groupCount; i++) {
+                    const startIdx = i * MAX_GROUP_SIZE;
+                    const endIdx = startIdx + MAX_GROUP_SIZE;
+                    const groupItems = rawOptions.slice(startIdx, endIdx);
+
+                    newOptions.push({
+                        value: `${startIdx}-${endIdx}`,
+                        label: `${startIdx}-${endIdx}`,
+                        children: groupItems
+                    });
+                }
+            } else {
+                newOptions = rawOptions; // 不足10个直接返回
+            }
+
+            return newOptions;
+        }
     },
     data() {
         return {
@@ -336,6 +382,11 @@ export default defineComponent({
             &.title {
                 font-weight: bold;
             }
+        }
+
+        .desc {
+            font-size: 14px;
+            color: #666;
         }
     }
 }

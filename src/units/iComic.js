@@ -2,6 +2,7 @@ const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const cheerio = require('cheerio');
+const { buffer } = require('stream/consumers');
 
 class iComic_http {
     timeout = 30000;
@@ -20,11 +21,12 @@ class iComic_http {
         // 1. 去除首尾空格/换行
         url = url.trim();
 
-        // 2. 替换连续的空白字符为单个空格（可选）
-        url = url.replace(/\s+/g, ' ');
-        url = url.replace(/[\r\n]+/g, '')
 
-        // 3. 进行URL编码
+        // 1. 允许 ASCII 安全字符 + 汉字
+        // 严格兼容 RFC 3986 
+        url = url.replace(/[^\w\-_.~!*'();:@&=+$,/?%#[\]\u4e00-\u9fa5]/g, '');
+
+        // 2. 对汉字等非 ASCII 字符进行编码（可选）
         return encodeURI(url);
     }
 
@@ -82,9 +84,10 @@ class iComic_http {
 
                     res.on('end', () => {
                         resolve({
+                            status: res.statusCode == 200,
                             statusCode: res.statusCode,
                             headers: res.headers,
-                            body: responseBody
+                            body: Buffer.concat(responseBody)
                         });
                     });
                 });
@@ -131,18 +134,18 @@ class iComic_http {
                     // 根据 content-type 判断是否为二进制
                     // console.log("res:", url, res.headers);
                     // 二进制数组用来存储返回的二进制数据
-                    const responseData = [];
+                    const responseBody = [];
 
                     res.on('data', (chunk) => {
-                        responseData.push(chunk);
+                        responseBody.push(chunk);
                     });
 
                     res.on('end', () => {
                         resolve({
+                            status: res.statusCode == 200,
                             statusCode: res.statusCode,
                             headers: res.headers,
-                            body: Buffer.concat(responseData),
-                            buffer: responseData
+                            body: Buffer.concat(responseBody)
                         });
                     });
                 });

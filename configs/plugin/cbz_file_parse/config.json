@@ -5,8 +5,9 @@
     "support_file": [
         ".cbz"
     ],
+    "content_type": "image",
     "description": "解析cbz文件，并返回符合iComic规范的config.json内容",
     "author": "iComic",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "need_install": false
 }

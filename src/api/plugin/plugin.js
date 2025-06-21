@@ -19,6 +19,7 @@ class plugin {
                 version: item.version,
                 description: item.description,
                 placeholder: item.placeholder,
+                content_type: plugin.content_type,
                 need_install: item.need_install,
                 installed: fs.existsSync(path.join(item.path, "node_modules"))
             });
@@ -42,6 +43,7 @@ class plugin {
                 version: item.version,
                 description: item.description,
                 placeholder: item.placeholder,
+                content_type: item.content_type,
                 need_install: item.need_install,
                 installed: fs.existsSync(path.join(item.path, "node_modules"))
             });
@@ -53,9 +55,36 @@ class plugin {
         }
     }
 
+    getPluginById(req, res, helpers) {
+        let pluginId = req.body.plugin_id;
+        let plugin = helpers.plugin.getPlugin(pluginId);
+
+        if (plugin) {
+            return {
+                status: true,
+                data: {
+                    id: plugin.id,
+                    name: plugin.name,
+                    type: plugin.type,
+                    version: plugin.version,
+                    description: plugin.description,
+                    placeholder: plugin.placeholder,
+                    content_type: plugin.content_type,
+                    need_install: plugin.need_install,
+                    installed: fs.existsSync(path.join(plugin.path, "node_modules"))
+                }
+            }
+        } else {
+            return {
+                status: false,
+                msg: "未找到插件"
+            }
+        }
+    }
+
     installPluginDependencies(req, res, helpers) {
         let pluginId = req.body.plugin_id;
-        
+
         return helpers.plugin.installPluginDependencies(pluginId);
     }
 
