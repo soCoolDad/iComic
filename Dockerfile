@@ -21,7 +21,8 @@ COPY web web
 
 RUN mkdir configs
 # 2. #忽略其他的插件，只上传必要的插件，嘿嘿
-COPY configs/plugin/cbzFileParse configs/plugin/cbzFileParse 
+COPY configs/plugin/cbzFileParse configs/plugin/cbz_file_parse
+COPY configs/plugin/cbzFileParse configs/plugin/ictz_file_parse
 COPY configs/plugin/lang-en configs/plugin/lang-en  
 COPY configs/plugin/lang-zh-cn configs/plugin/lang-zh-cn
 

@@ -37,7 +37,7 @@
                         </el-image>
                     </div>
                     <div class="text_box" v-for="item in items" v-if="plugin_content_type == 'text'">
-                        <div class="text" v-text="item"></div>
+                        <div class="text" v-html="getBlockText(item)"></div>
                     </div>
                 </div>
             </div>
@@ -163,7 +163,8 @@ export default defineComponent({
             chapter_index: 0,
             items: [] as Array<string>,
             show_bar: true,
-            plugin_content_type: ""
+            plugin_content_type: "",
+            text_cache: {}
         }
     },
     mounted() {
@@ -172,6 +173,48 @@ export default defineComponent({
     methods: {
         onBack() {
             this.$router.go(-1);
+        },
+        getBlockText(url) {
+            //将所有/替换为_
+            let key = url.replace(/\//g, "_");
+            let content = this.text_cache[key];
+
+            if (content) {
+                return content;
+            } else {
+                this.$g.http.send(url, 'get').then((res) => {
+                    //..
+                    if (res.status) {
+                        let str = res.data;
+
+                        //将所有<替换为&lt;
+                        str = str.replaceAll("<", "&lt;");
+                        //将所有>替换为&gt;
+                        str = str.replaceAll(">", "&gt;");
+                        //将所有&替换为&amp;
+                        str = str.replaceAll("&", "&amp;");
+                        //将所有"替换为&quot;
+                        str = str.replaceAll('"', "&quot;");
+                        //将所有'替换为&apos;
+                        str = str.replaceAll("'", "&apos;");
+                        //将所有\n替换为<br>
+                        let divs = str.split('\n');
+                        let new_strs = divs.map((div) => {
+                            return `<div>${div}</div>`;
+                        });
+
+
+
+                        this.text_cache[key] = new_strs.join('');
+                    } else {
+                        this.text_cache[key] = `load error:${res.msg}`;
+                    }
+                }).catch((err) => {
+                    this.text_cache[key] = `load error:${err.massage}`;
+                    return ""
+                });
+                return "loading...";
+            }
         },
         send_read_progress(newVal) {
             //发送阅读进度
@@ -481,11 +524,25 @@ export default defineComponent({
                 }
 
                 .text_box {
+                    font-family: 'Helvetica Neue','Hiragino Sans GB',Helvetica,Arial,'Microsoft YaHei','微软雅黑','SimSun','宋体',sans-serif;
+                    color: #000;
+                    //background-color: rgb(250, 247, 237);
+                    font-size: 20px;
+                    font-weight: 400;
+                    line-height: 40px;
                     margin: 0; // 清除默认外边距
                     padding: 0; // 清除默认内边距
 
                     +.text_box {
                         margin-top: 0; // 清除相邻图片盒子和文本盒子的间距
+                    }
+
+                    .text {
+                        text-indent: 2em;
+                        overflow-wrap: break-word;
+                        text-align: justify;
+                        line-height: 2.4em;
+                        outline: 0px;
                     }
                 }
             }

@@ -1,12 +1,12 @@
 /**
- * 解析cbz文件，并返回符合iComic规范的JSON内容
- * @param {string} file_path cbz文件路径
+ * 解析ictz文件，并返回符合iComic规范的JSON内容
+ * @param {string} file_path ictz文件路径
  * @param {string} config_path JSON路径
  * @param {function} cbx_success 成功回调
  * @param {function} cbx_error 失败回调
  * @returns {Promise<boolean>}
  */
-class Cbz_File_Parse extends FileParserPlugin {
+class Ictz_File_Parse extends FileParserPlugin {
     /**
      * readZip
      * {
@@ -23,7 +23,7 @@ class Cbz_File_Parse extends FileParserPlugin {
     //停止阅读10分钟后关闭zip释放内存
     autoCloseZipTimer = 1000 * 60 * 10;
     /**
-    * 解析cbz文件，并返回符合iComic规范的JSON内容
+    * 解析ictz文件，并返回符合iComic规范的JSON内容
     *   JSON
     *        {
     *            "name": "",
@@ -46,24 +46,24 @@ class Cbz_File_Parse extends FileParserPlugin {
     *               }
     *            ]
     *        }
-    * 判断file_path是否为cbz文件
-    * 如果是，读取cbz文件，用来备用解析
-    * 如果不是，调用cbx_error({status:false,msg:"不是cbz文件"});return false;
+    * 判断file_path是否为ictz文件
+    * 如果是，读取ictz文件，用来备用解析
+    * 如果不是，调用cbx_error({status:false,msg:"不是ictz文件"});return false;
     * 判断config_path是否为JSON
     * 如果是，读取JSON，生成json对象，用来备用解析
     * 如果不是 就生成一个空json对象
     * {
-    *       "name": "cbz文件名",
+    *       "name": "ictz文件名",
     *       "type": "comic",
-    *       "page_count": "cbz文件的页数",
+    *       "page_count": "ictz文件的页数",
     *       "cover_image" "",
     *       "page_list": [],
     * }
     * 创建新的json对象，把之前的json对象的内容如果有值合并到新的json对象里    
-    * 读取新的json对象.cover_image文件是否存在，如果存在就判断文件存在，如果不存在就读取cbz第一张图片作为cover_image,用base64编码
+    * 读取新的json对象.cover_image文件是否存在，如果存在就判断文件存在，如果不存在就读取ictz第一张图片作为cover_image,用base64编码
     * 
-    * 解析cbz文件开始
-    * 遍历cbz文件里的所有的文件,对文件名进行0-9这样的排序
+    * 解析ictz文件开始
+    * 遍历ictz文件里的所有的文件,对文件名进行0-9这样的排序
     * 对文件路径进行判断
     * 如果路径是 /目录名/*.*
     * 生成page_list里面的page对象
@@ -81,21 +81,21 @@ class Cbz_File_Parse extends FileParserPlugin {
     * }
     * 将page对象存储在page_list里面
     * 赋值给新的json对象page_list
-    * 解析cbz文件结束
+    * 解析ictz文件结束
     * 调用cbx_success(新的json对象)
     * return true;
     */
     async parseFile(file_path, config_path, cbx_success, cbx_error) {
-        // 判断file_path是否为cbz文件
+        // 判断file_path是否为ictz文件
 
-        if (path.extname(file_path).toLowerCase() !== '.cbz') {
-            cbx_error({ status: false, msg: "不是cbz文件" });
+        if (path.extname(file_path).toLowerCase() !== '.ictz') {
+            cbx_error({ status: false, msg: "不是ictz文件" });
             return false;
         }
 
-        // 读取cbz文件
+        // 读取ictz文件
         if (!iComic.existsSync(file_path)) {
-            cbx_error({ status: false, msg: "cbz文件不存在" });
+            cbx_error({ status: false, msg: "ictz文件不存在" });
             return false;
         }
 
@@ -110,10 +110,10 @@ class Cbz_File_Parse extends FileParserPlugin {
         }
 
         // 生成基础json对象
-        const cbzName = path.basename(file_path, '.cbz');
+        const ictzName = path.basename(file_path, '.ictz');
         let newConfig = {
-            name: cbzName,
-            type: "comic",
+            name: ictzName,
+            type: "text",
             author: "",
             page_count: 0,
             cover_image: "",
@@ -125,7 +125,7 @@ class Cbz_File_Parse extends FileParserPlugin {
         // 合并已有config内容
         Object.assign(newConfig, configObj);
 
-        // 解析cbz文件
+        // 解析ictz文件
         let zip = null;
         try {
             const StreamZip = require('node-stream-zip');
@@ -149,7 +149,7 @@ class Cbz_File_Parse extends FileParserPlugin {
                 'Icon\r' // 注意是 \r 回车符
             ];
 
-            let imageFiles = Object.values(entries).map((e, index) => {
+            let txtFiles = Object.values(entries).map((e, index) => {
                 return {
                     index,
                     name: e.name,
@@ -161,9 +161,9 @@ class Cbz_File_Parse extends FileParserPlugin {
             let page_list = [];
             let dirMap = {};
             let coverEntry = null;
-            for (let i = 0; i < imageFiles.length; i++) {
-                const imageFile = imageFiles[i];
-                const entry = imageFile.entry;
+            for (let i = 0; i < txtFiles.length; i++) {
+                const txtFile = txtFiles[i];
+                const entry = txtFile.entry;
 
                 const dirPath = path.dirname(entry.name);
                 const parts = path.basename(dirPath);
@@ -171,7 +171,7 @@ class Cbz_File_Parse extends FileParserPlugin {
                 //过滤目录，非图片文件，.开头文件 ._开头文件
                 if (
                     entry.isDirectory ||
-                    !/\.(jpe?g|png|gif|bmp|webp)$/i.test(entry.name) ||
+                    !/\.(txt)$/i.test(entry.name) ||
                     /^\./.test(entry.name) ||
                     /^\._/.test(entry.name) ||
                     systemFiles.some(f => entry.name.startsWith(f) || entry.name.includes('/' + f))
@@ -207,12 +207,12 @@ class Cbz_File_Parse extends FileParserPlugin {
                         dirMap[dir] = { title: dir, region: [] };
                     }
 
-                    dirMap[dir].region.push(imageFile.index);
+                    dirMap[dir].region.push(txtFile.index);
                 } else {
                     // /*.* 没有目录结构
                     page_list.push({
                         title: path.basename(entry.name),
-                        region: [imageFile.index]
+                        region: [txtFile.index]
                     });
                 }
             }
@@ -228,11 +228,13 @@ class Cbz_File_Parse extends FileParserPlugin {
             newConfig.page_list = page_list;
 
             await zip && zip.close();
+            zip = undefined;
             cbx_success(newConfig);
             return true;
         } catch (e) {
             await zip && zip.close();
-            cbx_error({ status: false, msg: "cbz解析失败", error: e });
+            zip = undefined;
+            cbx_error({ status: false, msg: "ictz解析失败", error: e });
             return false;
         }
     }
@@ -369,21 +371,25 @@ class Cbz_File_Parse extends FileParserPlugin {
                 console.log('auto_close_zip', file_path);
             }, this.autoCloseZipTimer);
 
-            let imageBuffer = null;
-            let imageEntry = fileZipCtl.entries[block_index];
-            let fileName = imageEntry?.name || "";
+            let textBuffer = null;
+            let textEntry = fileZipCtl.entries[block_index];
+            let fileName = textEntry?.name || "";
 
-            //console.log("imageEntry", imageEntry);
+            //console.log("textEntry", textEntry);
 
             //获取文件扩展名
             let fileExt = path.extname(fileName).slice(1);
 
-            if (imageEntry) {
-                imageBuffer = await fileZipCtl.zip.entryData(imageEntry);
+            if (textEntry) {
+                textBuffer = await fileZipCtl.zip.entryData(textEntry);
 
-                return { serverbacktype: 'image', data: imageBuffer, ext: fileExt };
+                if (textEntry.name.endsWith('.txt')) {
+                    return { serverbacktype: 'txt', data: textBuffer, ext: fileExt };
+                } else {
+                    return { serverbacktype: 'txt', data: Buffer.from(`这不是一段有效的文本,它是${fileExt}格式的`), ext: fileExt };
+                }
             } else {
-                return { status: false, msg: 'cbz not find image' }
+                return { status: false, msg: 'ictz not find txt' }
             }
         } catch (error) {
             return { status: false, msg: error.message };
@@ -407,7 +413,7 @@ class Cbz_File_Parse extends FileParserPlugin {
                     if (file === 'node_modules') continue;
                     // 排除.开头的目录
                     if (file.startsWith('.')) continue;
-                    
+
                     scanDir(filePath); // 递归处理子目录
                 } else if (stat.isFile()) {
                     // 排除json文件
@@ -417,8 +423,8 @@ class Cbz_File_Parse extends FileParserPlugin {
                     // 排除.开头的文件
                     //if (file.startsWith('.')) continue;
 
-                    //  只接受cbz文件
-                    if (path.extname(filePath).toLowerCase() !== '.cbz') continue;
+                    //  只接受ictz文件
+                    if (path.extname(filePath).toLowerCase() !== '.ictz') continue;
 
                     // 查找同名 config.json
                     const configPath = filePath.replace(path.extname(filePath), '.json');
@@ -457,5 +463,5 @@ class Cbz_File_Parse extends FileParserPlugin {
 }
 
 module.exports = {
-    Plugin: Cbz_File_Parse
+    Plugin: Ictz_File_Parse
 };

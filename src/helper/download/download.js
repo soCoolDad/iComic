@@ -480,7 +480,6 @@ class download_task {
                 //不写入到库,留给用户解析
                 let config_json = {
                     "name": this.name,
-                    "type": "comic",
                     "author": book_detail.author,
                     "page_count": page_count,
                     "tags": book_detail.tags,

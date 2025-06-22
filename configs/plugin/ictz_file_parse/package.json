@@ -1,0 +1,9 @@
+{
+    "name": "ictz_file_parse",
+    "version": "0.0.1",
+    "description": "a ictz file parser for iComic",
+    "main": "main.js",
+    "scripts": {},
+    "dependencies": {},
+    "author": "iComic"
+}

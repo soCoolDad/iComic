@@ -115,7 +115,7 @@ class FileParserPlugin extends BasePlugin {
     throw new Error('Not implemented');
   }
 
-  async parsePageImage(file_path, config_path, page, image) {
+  async parsePageBlock(file_path, config_path, page, block) {
     throw new Error('Not implemented');
   }
 }

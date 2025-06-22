@@ -3,6 +3,8 @@ const http = require('http');
 const https = require('https');
 const cheerio = require('cheerio');
 const { buffer } = require('stream/consumers');
+const { time } = require('console');
+const { send } = require('process');
 
 class iComic_http {
     timeout = 30000;
@@ -59,6 +61,34 @@ class iComic_http {
                 const hostname = urlObj.hostname;
                 const path = urlObj.pathname + (urlObj.search || '');
 
+                let isFormData = false;
+                let send_data = "";
+
+                if (headers && (headers['Content-Type'] == "application/x-www-form-urlencoded")) {
+                    isFormData = true;
+                }
+
+                // 如果有数据，写入请求体并结束请求
+                if (data) {
+                    if (isFormData) {
+                        // 将对象转换为表单字符串（如 key1=value1&key2=value2）
+                        const formData = new URLSearchParams();
+                        for (const key in data) {
+                            formData.append(key, data[key]);
+                        }
+
+                        //console.log("formData.toString()", formData.toString())
+
+                        send_data = formData.toString();
+
+                        headers['Content-Length'] = Buffer.byteLength(send_data);
+                    } else {
+                        send_data = JSON.stringify(data);
+                    }
+                }
+
+                //console.log('isFormData', isFormData);
+
                 // 根据协议选择http或https模块
                 const httpModule = urlObj.protocol === 'https:' ? https : http;
 
@@ -67,6 +97,7 @@ class iComic_http {
                     hostname,
                     path,
                     method: 'POST',
+                    timeout: this.timeout,
                     headers: {
                         'Content-Type': 'text/html', // 默认内容类型为html
                         ...this.getHeader(),
@@ -74,11 +105,14 @@ class iComic_http {
                     }
                 };
 
+                //console.log("options", options);
+
                 // 创建请求
                 const req = httpModule.request(options, (res) => {
                     let responseBody = [];
 
                     res.on('data', (chunk) => {
+                        //console.log("data coming")
                         responseBody.push(chunk);
                     });
 
@@ -92,17 +126,19 @@ class iComic_http {
                     });
                 });
 
+                //console.log("req", req);
+
                 req.on('error', (e) => {
+                    console.log("req error", e);
                     reject(e);
                 });
 
-                // 如果有数据，写入请求体并结束请求
-                if (data) {
-                    req.write(JSON.stringify(data)); // 将数据转换为JSON字符串
-                }
+                // 默认 JSON 格式
+                req.write(send_data);
 
                 req.end();
             } catch (error) {
+                console.error("http post error",error);
                 reject(error);
             } finally {
                 clearTimeout(timeout);
@@ -124,6 +160,7 @@ class iComic_http {
                     hostname: urlObj.hostname,
                     path: urlObj.pathname + (urlObj.search || ''),
                     method: 'GET',
+                    timeout: this.timeout,
                     headers: {
                         ...this.getHeader(),
                         ...headers
@@ -153,6 +190,7 @@ class iComic_http {
                 req.on('error', reject);
                 req.end();
             } catch (error) {
+                console.error("http get error",error);
                 reject(error);
             } finally {
                 clearTimeout(timeout);

@@ -24,8 +24,8 @@
             <div class="data_box" v-if="new_adds.length > 0">
                 <div class="title">新添加</div>
                 <el-row :gutter="20">
-                    <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" class="padding-button-20"
-                        v-for="item in new_adds" :key="item.id">
+                    <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" class="padding-button-20" v-for="item in new_adds"
+                        :key="item.id">
                         <comic :data="item" @click="onComicClick(item)" />
                     </el-col>
                 </el-row>
@@ -43,7 +43,7 @@
         <div class="hide">
             <el-dialog v-model="showReadTo" :title="curItem?.name" width="500" align-center>
                 <div class="readToBox" v-if="curItem?.status == 0 || curItem?.status == 3">
-                    <div class="tips desc">{{ curItem?.description }}</div>
+                    <div class="tips desc line-tow">{{ curItem?.description }}</div>
                     <div class="tips title">该文件还未解析</div>
                     <div class="tips">请选择解析插件进行解析</div>
                     <el-select v-model="select_plugin" placeholder="select plugin">
@@ -60,7 +60,7 @@
                     </div>
                 </div>
                 <div class="readToBox" v-else-if="curItem?.status == 2">
-                    <div class="tips desc">{{ curItem?.description }}</div>
+                    <div class="tips desc line-tow">{{ curItem?.description }}</div>
                     <div class="tips title">选择章节</div>
                     <!-- <el-select v-model="select_chapter" placeholder="select chapter">
                         <el-option v-for="(item, index) in chapter_list" :label="item.title" :value="index">
@@ -405,15 +405,26 @@ export default defineComponent({
         padding-bottom: 20px;
     }
 
-    .data_box{
+    .data_box {
         padding: 0px 0;
         margin: 0px 0;
         color: #353535;
-        .title{
+
+        .title {
             font-size: 18px;
             font-weight: 600;
             padding: 15px 0;
         }
+    }
+
+    .line-tow {
+        display: -webkit-box;
+        line-clamp: 2;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: normal;
     }
 
     .readToBox {

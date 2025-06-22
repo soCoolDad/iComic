@@ -76,7 +76,7 @@ class imageRader {
                 return { status: false, msg: "插件不存在" };
             }
 
-            return await plugin.parsePageImage(library_path, library_config_path, page, image);
+            return await plugin.parsePageBlock(library_path, library_config_path, page, image);
         } else {
             return {
                 status: false,

@@ -91,6 +91,12 @@ app.all('/api/:module/:method', async (req, res) => {
                     res.type(`image/${result.ext || "jpeg"}`);
                     res.send(result.data);
                     return;
+                } else if (typeof result === 'object' && result.serverbacktype === 'txt') {
+                    //res.type(`text/plain`);
+                    //返回纯文本
+                    let str = Buffer.from(result.data).toString('utf-8');
+                    res.json({ status: true, data: str });
+                    return;
                 } else if (typeof result === 'object' && result.status !== "undefined") {
                     res.json(result)
                     return;
