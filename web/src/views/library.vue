@@ -98,7 +98,7 @@ interface ComicItem {
     status: number;
     description: string;
     read_page_progress: number;
-    read_page_time: number;
+    read_update_time: number;
     plugin_id: string;
 }
 
@@ -326,6 +326,11 @@ export default defineComponent({
                     list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
 
                     list.forEach((item) => {
+                        //转换时间为时间戳
+                        item.read_update_time = (new Date(item.read_update_time).getTime()) || 0;    
+
+                        //console.log(item.read_update_time)
+
                         if (item.status == 2 && item.read_page_progress > 0) {
                             continues.push(item);
                         } else if (item.status == 0) {
@@ -334,7 +339,7 @@ export default defineComponent({
                     });
 
                     //按照read_page_time排序
-                    continues.sort((a, b) => a.read_page_time > b.read_page_time);
+                    continues.sort((a, b) => a.read_update_time < b.read_update_time);
 
                     this.list = list;
                     this.continues = continues;
