@@ -1,5 +1,5 @@
 <template>
-    <div class="read">
+    <div class="read" :class="{ 'read_mode': plugin_content_type }">
         <div class="loading" v-show="page_loading || page_error">
             <el-alert v-if="page_loading" type="primary" title="Loading..." description="Page loading, please wait..."
                 show-icon />
@@ -347,6 +347,8 @@ export default defineComponent({
                 if (scroller) {
                     (scroller as any).scroll(0, 0); // 直接操作DOM作为备选方案
                 }
+
+                window.scrollTo(0, 0);
             });
         },
         handlePrev() {
@@ -412,8 +414,7 @@ export default defineComponent({
         top: 0;
         right: 0;
         bottom: 0;
-        background-color: rgba(255, 255, 255, 1);
-
+        
         .header {
             position: fixed;
             display: flex;
@@ -459,11 +460,10 @@ export default defineComponent({
             top: 0;
             right: 0;
             bottom: 0;
-            padding: 100px 0px;
+            padding: 80px 0px;
             overflow: auto;
-            background-color: rgba(0, 0, 0, 0.05);
-
             transition: padding 0.2s ease-in-out;
+            background-color: rgba(255, 255, 255, 1);
 
             .scroller_content {
                 max-width: 600px;
@@ -515,19 +515,14 @@ export default defineComponent({
                     }
                 }
 
-
-
                 .text_box {
                     font-family: 'Helvetica Neue', 'Hiragino Sans GB', Helvetica, Arial, 'Microsoft YaHei', '微软雅黑', 'SimSun', '宋体', sans-serif;
-                    color: #000;
                     //background-color: rgb(250, 247, 237);
                     font-size: 20px;
                     font-weight: 400;
                     line-height: 40px;
                     margin: 0; // 清除默认外边距
                     padding: 0; // 清除默认内边距
-
-
 
                     +.text_box {
                         margin-top: 0; // 清除相邻图片盒子和文本盒子的间距
@@ -566,7 +561,7 @@ export default defineComponent({
             }
 
             .scroller {
-                padding: 30px 0;
+                padding: 0;
             }
         }
 
@@ -589,6 +584,23 @@ export default defineComponent({
             -webkit-line-clamp: 1;
             overflow: hidden; // 隐藏溢出内容
             text-overflow: ellipsis;
+        }
+    }
+
+    &.read_mode {
+        .scroller{
+            background-color: #fcfcfc;
+            color: black;
+        }
+    }
+
+    @media (prefers-color-scheme: dark) {
+        // 夜间模式样式
+        &.read_mode {
+            .scroller{
+                background-color: #202020;
+                color: #848484;
+            }
         }
     }
 }
