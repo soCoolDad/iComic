@@ -86,7 +86,7 @@ class UpdateSystem {
         // 修改后的执行方式
         execSync(`zip -r ${backupPath} . -x "node_modules/*" "web/node_modules/*" ".backup/*" ".temp/*"`, {
             stdio: 'inherit',  // 正常输出
-            maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
+            maxBuffer: 1024 * 1024 * 5 // 设置10MB缓冲区(默认200KB)
         });
 
         return backupPath;
@@ -103,7 +103,7 @@ class UpdateSystem {
         const tempFile = path.join(CONFIG.tempDir, 'update.zip');
         execSync(`curl -L "${asset}" -o ${tempFile}`, {
             stdio: 'inherit',  // 正常输出
-            maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
+            maxBuffer: 1024 * 1024 * 5 // 设置10MB缓冲区(默认200KB)
         });
 
         // 校验SHA256（可选）
@@ -130,7 +130,7 @@ class UpdateSystem {
 
             execSync(`unzip -o ${zipPath} -d ${temp_files_dir}`, {
                 stdio: 'inherit',  // 正常输出
-                maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
+                maxBuffer: 1024 * 1024 * 5 // 设置10MB缓冲区(默认200KB)
             });
 
             // 关闭当前进程使用的文件
@@ -158,7 +158,7 @@ class UpdateSystem {
             // 使用rsync原子替换（修改后的路径）
             execSync(`rsync -a ${sourceDir}/ ${CONFIG.rootDir}/`, {
                 stdio: 'inherit',  // 正常输出
-                maxBuffer: 1024 * 1024 * 100
+                maxBuffer: 1024 * 1024 * 5
             });
 
             console.log('update', '安装插件...');
@@ -173,12 +173,12 @@ class UpdateSystem {
             console.log('update', '安装新依赖...');
             execSync('cnpm install --quiet', {
                 stdio: 'inherit',  // 正常输出
-                maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
+                maxBuffer: 1024 * 1024 * 5 // 设置10MB缓冲区(默认200KB)
             });
 
             execSync('cd web && cnpm install --quiet && cnpm run build --silent', {
                 stdio: 'inherit',  // 正常输出
-                maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
+                maxBuffer: 1024 * 1024 * 5 // 设置10MB缓冲区(默认200KB)
             });
 
         } catch (error) {
@@ -192,7 +192,7 @@ class UpdateSystem {
 
         execSync(`unzip -o ${backupPath} -d ${CONFIG.rootDir}`, {
             stdio: 'inherit',  // 正常输出
-            maxBuffer: 1024 * 1024 * 100 // 设置10MB缓冲区(默认200KB)
+            maxBuffer: 1024 * 1024 * 5 // 设置10MB缓冲区(默认200KB)
         });
 
         console.log('update', '回滚完成，请重启应用');
