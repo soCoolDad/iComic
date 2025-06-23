@@ -169,9 +169,9 @@ class setting {
             const response = await iComic.get(
                 `https://api.github.com/repos/${repo}/releases/latest`,
                 {
-                    headers: {
-                        'Accept': 'application/vnd.github.v3+json'
-                    }
+                    'Accept': 'application/vnd.github.v3+json',
+                    'User-Agent': 'soCoolDad/iComic',
+                    'Authorization': (process.env.GITHUB_TOKEN ? `Bearer ${process.env.GITHUB_TOKEN}` : undefined)
                 }
             );
 

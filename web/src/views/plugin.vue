@@ -68,6 +68,13 @@ export default defineComponent({
             this.$g.http.send('/api/plugin/getAllPlugins', 'get')
                 .then((res) => {
                     if (res.status) {
+                        let plugins = res.data || [];
+
+                        //按照type排序
+                        plugins.sort((a, b) => {
+                            return a.type.localeCompare(b.type, undefined, { numeric: true })
+                        });
+
                         this.list = res.data;
                     } else {
                         this.$g.tipbox.error(res.msg);

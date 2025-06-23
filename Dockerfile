@@ -44,7 +44,8 @@ ENV NODE_ENV=production \
     NODE_OPTIONS="--max-old-space-size=4096 --max-semi-space-size=1024" \
     CONFIG_DIR="/configs" \
     SERVER_PORT=3000 \
-    UPDATE_REPO="soCoolDad/iComic"
+    UPDATE_REPO="soCoolDad/iComic" \
+    GITHUB_TOKEN=""
 # 6. 启动命令
 #CMD ["cnpm", "run", "start"]
 CMD ["pm2-runtime", "start", "src/index.js"]

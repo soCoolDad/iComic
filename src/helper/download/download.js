@@ -205,6 +205,8 @@ class download_task {
                     cleanup();
                     reject(err);
                 });
+        }).finally(() => {
+            zip.outputStream.destroy(); // 确保释放zip输出流
         });
     }
 
@@ -244,8 +246,8 @@ class download_task {
                 if (book_detail?.status === false) {
                     console.error(`重试第${i + 1}次`, `插件[${this.plugin.name}]获取[getDetail]失败:${book_detail.msg}`);
 
-                    if(i == 4){
-                        throw new Error(book_detail.msg);   
+                    if (i == 4) {
+                        throw new Error(book_detail.msg);
                     }
                 } else {
                     break;
@@ -332,7 +334,7 @@ class download_task {
 
                         if (page_detail?.status === false) {
                             console.error(`重试第${j + 1}次`, `插件[${this.plugin.name}]获取[getPageDetail]失败:${page_detail?.msg}`);
-                            if(j == 4){
+                            if (j == 4) {
                                 throw new Error(page_detail?.msg);
                             }
                         } else {
