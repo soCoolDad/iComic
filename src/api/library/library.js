@@ -11,7 +11,10 @@ class library {
             //通过library_tag和tag表联查tag.name
             //library.tags = helpers.db_query.all('SELECT * FROM library_tag WHERE library_id = ?', [library.id]);
             library.tags = helpers.db_query.all('SELECT tag.id, tag.name FROM library_tag LEFT JOIN tag ON library_tag.tag_id = tag.id WHERE library_tag.library_id = ?', [library.id]);
-            library.read_page_progress = helpers.db_query.get('SELECT read_page_progress FROM library_progress WHERE library_id = ?', [library.id])?.read_page_progress || 0;
+
+            let read_result = helpers.db_query.get('SELECT read_page_progress,read_update_time FROM library_progress WHERE library_id = ?', [library.id]);
+            library.read_page_progress = read_result?.read_page_progress || 0;
+            library.read_update_time = read_result?.read_update_time || 0;
         });
 
         return {
@@ -54,7 +57,10 @@ class library {
         }
 
         ret.tags = helpers.db_query.all('SELECT tag.id, tag.name FROM library_tag LEFT JOIN tag ON library_tag.tag_id = tag.id WHERE library_tag.library_id = ?', [ret.id]);
-        ret.read_page_progress = helpers.db_query.get('SELECT read_page_progress FROM library_progress WHERE library_id = ?', [ret.id])?.read_page_progress || 0;
+
+        let read_result = helpers.db_query.get('SELECT read_page_progress,read_update_time FROM library_progress WHERE library_id = ?', [ret.id]);
+        ret.read_page_progress = read_result?.read_page_progress || 0;
+        ret.read_update_time = read_result?.read_update_time || 0;
 
         if (need_config) {
             let config_path = ret.config_path;
@@ -110,7 +116,7 @@ class library {
             //插入记录
             ret = await helpers.db_query.run('INSERT INTO library_progress (library_id, read_page_progress) VALUES (?, ?)', [library_id, read_page_progress]);
         } else {
-            ret = await helpers.db_query.run('UPDATE library_progress SET read_page_progress = ? WHERE library_id = ?', [read_page_progress, library_id]);
+            ret = await helpers.db_query.run('UPDATE library_progress SET read_page_progress = ?,read_update_time = CURRENT_TIMESTAMP WHERE library_id = ?', [read_page_progress, library_id]);
         }
 
         return {

@@ -1,6 +1,6 @@
 {
   "name": "iComic",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "A comic application using Vue 3 and Element Plus",
   "main": "src/main.ts",
   "scripts": {

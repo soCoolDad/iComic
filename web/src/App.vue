@@ -23,17 +23,21 @@ export default defineComponent({
     PageHeader
   },
   mounted() {
-        //console.log('onload');
+    //console.log('onload');
   },
   methods: {
   }
 });
 </script>
 
-<style>
+<style lang="scss">
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  .el-cascader-menu {
+    min-width: none;
+  }
 }
 </style>

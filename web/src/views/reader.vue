@@ -415,8 +415,8 @@ export default defineComponent({
         background-color: rgba(255, 255, 255, 1);
 
         .header {
+            position: fixed;
             display: flex;
-            position: absolute;
             left: 0;
             top: 0;
             right: 0;
@@ -436,7 +436,7 @@ export default defineComponent({
         }
 
         .footer {
-            position: absolute;
+            position: fixed;
             display: flex;
             left: 0;
             right: 0;
@@ -453,25 +453,17 @@ export default defineComponent({
             transition: bottom 0.2s ease-in-out;
         }
 
-        &.hide_bar {
-            .header {
-                top: -80px;
-            }
-
-            .footer {
-                bottom: -80px;
-            }
-        }
-
         .scroller {
-            position: absolute;
+            position: relative;
             left: 0;
             top: 0;
             right: 0;
             bottom: 0;
-            padding: 80px 0px;
+            padding: 100px 0px;
             overflow: auto;
             background-color: rgba(0, 0, 0, 0.05);
+
+            transition: padding 0.2s ease-in-out;
 
             .scroller_content {
                 max-width: 600px;
@@ -523,8 +515,10 @@ export default defineComponent({
                     }
                 }
 
+
+
                 .text_box {
-                    font-family: 'Helvetica Neue','Hiragino Sans GB',Helvetica,Arial,'Microsoft YaHei','微软雅黑','SimSun','宋体',sans-serif;
+                    font-family: 'Helvetica Neue', 'Hiragino Sans GB', Helvetica, Arial, 'Microsoft YaHei', '微软雅黑', 'SimSun', '宋体', sans-serif;
                     color: #000;
                     //background-color: rgb(250, 247, 237);
                     font-size: 20px;
@@ -532,6 +526,8 @@ export default defineComponent({
                     line-height: 40px;
                     margin: 0; // 清除默认外边距
                     padding: 0; // 清除默认内边距
+
+
 
                     +.text_box {
                         margin-top: 0; // 清除相邻图片盒子和文本盒子的间距
@@ -545,6 +541,32 @@ export default defineComponent({
                         outline: 0px;
                     }
                 }
+
+                /* 如果设备宽度小于600px */
+                @media screen and (max-width: 600px) {
+                    .text_box {
+                        padding: 0 30px;
+                        font-size: 22px;
+
+                        .text {
+                            text-indent: 8px;
+                        }
+                    }
+                }
+            }
+        }
+
+        &.hide_bar {
+            .header {
+                top: -80px;
+            }
+
+            .footer {
+                bottom: -80px;
+            }
+
+            .scroller {
+                padding: 30px 0;
             }
         }
 

@@ -68,6 +68,7 @@ class init {
             CREATE TABLE IF NOT EXISTS library_progress (
                 library_id INTEGER,
                 read_page_progress INTEGER DEFAULT 0,
+                read_update_time INTEGER DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (library_id)
             );
             CREATE TABLE IF NOT EXISTS library (
@@ -79,6 +80,7 @@ class init {
                 path TEXT,
                 config_path TEXT,
                 plugin_id TEXT NOT NULL,
+                update_time INTEGER DEFAULT CURRENT_TIMESTAMP,
                 status INTEGER DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS library_tag (

@@ -22,7 +22,7 @@
                 </el-row>
             </div>
             <div class="data_box" v-if="new_adds.length > 0">
-                <div class="title">新添加</div>
+                <div class="title">未解析</div>
                 <el-row :gutter="20">
                     <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" class="padding-button-20" v-for="item in new_adds"
                         :key="item.id">
@@ -98,6 +98,7 @@ interface ComicItem {
     status: number;
     description: string;
     read_page_progress: number;
+    read_page_time: number;
     plugin_id: string;
 }
 
@@ -331,6 +332,9 @@ export default defineComponent({
                             new_adds.push(item);
                         }
                     });
+
+                    //按照read_page_time排序
+                    continues.sort((a, b) => a.read_page_time > b.read_page_time);
 
                     this.list = list;
                     this.continues = continues;
