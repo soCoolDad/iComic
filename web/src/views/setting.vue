@@ -1,35 +1,62 @@
 <template>
     <div class="setting">
-        <h1 class="title">Setting</h1>
+        <h1 class="title">{{ $t('setting.title') }}</h1>
         <div class="setting_box">
             <div class="sub_box">
-                <div class="sub_title">about Me</div>
-                <div class="desc">iComic is an e-comic reading application with support for third-party plugins to fetch
-                    and parse files. Happy reading!</div>
+                <div class="sub_title">{{ $t('setting.about_me') }}</div>
+                <div class="desc">{{ $t('setting.about_me_info') }}</div>
                 <div class="buttons">
-                    <el-button round type="primary" @click="openGithub">GitHub</el-button>
+                    <el-button round type="primary" @click="openGithub">{{ $t('setting.github') }}</el-button>
                 </div>
             </div>
             <div class="sub_box">
-                <div class="sub_title">Version</div>
+                <div class="sub_title">{{ $t('setting.GitHub_PAT') }}</div>
+                <div class="desc">{{ $t('setting.GitHub_PAT_Info') }}</div>
+                <div class="desc">
+                    <el-input v-model="github_token" placeholder="Github Personal Access token"></el-input>
+                </div>
+                <div class="buttons">
+                    <el-button round type="primary" :loading="ajaxWorking" @click="saveSystem('GitHub PAT')">{{
+                        $t('setting.save') }}</el-button>
+                </div>
+            </div>
+            <div class="sub_box">
+                <div class="sub_title">{{ $t('setting.language') }}</div>
+                <div class="desc">
+                    <el-select v-model="lang" placeholder="Language">
+                        <el-option v-for="item in langs" :label="item.label" :value="item.value">
+                            {{ item.label }}
+                        </el-option>
+                    </el-select>
+                </div>
+                <div class="buttons">
+                    <el-button round type="primary" :loading="ajaxWorking" @click="saveSystem('Language')">{{
+                        $t('setting.save') }}</el-button>
+                </div>
+            </div>
+            <div class="sub_box">
+                <div class="sub_title">{{ $t('setting.version') }}</div>
                 <div class="desc">
                     <el-tag type="primary">{{ version }}</el-tag>
                     <span>&nbsp;</span>
-                    <el-tag type="danger" v-if="has_update">新:{{ has_update_new_version }}</el-tag>
+                    <el-tag type="danger" v-if="has_update">{{ $t('setting.has_new_version', has_update_new_version)
+                        }}</el-tag>
                 </div>
                 <div class="buttons">
-                    <el-button round type="primary" :loading="ajaxWorking" @click="checkUpdate">检查更新</el-button>
+                    <el-button round type="primary" :loading="ajaxWorking" @click="checkUpdate">{{
+                        $t('setting.check_new') }}</el-button>
                     <el-button round v-if="has_update" type="danger" :loading="ajaxWorking"
-                        @click="show_update = true">更新</el-button>
+                        @click="show_update = true">{{ $t('setting.update') }}</el-button>
                 </div>
             </div>
             <div class="sub_box">
-                <div class="sub_title">Cache</div>
+                <div class="sub_title">{{ $t('setting.cache') }}</div>
                 <div class="desc">
                     {{ cache_size_parse }}
                 </div>
                 <div class="buttons">
-                    <el-button round type="primary" :loading="getCacheSizeWorking" @click="clearCache">清理缓存</el-button>
+                    <el-button round type="primary" :loading="getCacheSizeWorking" @click="clearCache">{{
+                        $t('setting.clear_cache') }}</el-button>
                 </div>
             </div>
         </div>
@@ -60,6 +87,7 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue';
+import { i18n } from '../main';
 export default defineComponent({
     name: 'setting',
     computed: {
@@ -95,13 +123,60 @@ export default defineComponent({
             github_repo: "",
             cache_size: 0,
             getCacheSizeWorking: false,
+            langs: [] as { value: string, label: string }[],
+            lang: "",
+            clearCacheWorking: false,
+            github_token: ""
         }
     },
     mounted() {
         this.sysConfig();
         this.getCacheSize();
+        this.getAllLang();
     },
     methods: {
+        saveSystem(key) {
+            if (this.ajaxWorking) return;
+
+            let config_name, config_value;
+
+            if (key == "Language") {
+                i18n.global.locale.value = this.lang;
+                localStorage.setItem('lang', this.lang);
+                config_name = "LANGUAGE";
+                config_value = this.lang;
+            }
+
+            this.ajaxWorking = true;
+            this.$g.http.send('/api/setting/saveConfig', 'post', {
+                config_name,
+                config_value
+            }).then((res) => {
+                if (res.status) {
+                    this.$g.tipbox.success(res.msg);
+                }
+            }).catch((err) => {
+                this.$g.tipbox.error(err.message);
+            }).finally(() => {
+                this.ajaxWorking = false;
+            });
+        },
+        getAllLang() {
+            this.$g.http.send('/api/setting/getAllLang', 'get').then((res) => {
+                if (res.status) {
+                    this.langs = (res.data || []).map((item) => {
+                        return {
+                            value: item.id,
+                            label: item.name
+                        }
+                    });
+                }
+            }).catch((err) => {
+                this.$g.tipbox.error(err.message);
+            }).finally(() => {
+                this.getCacheSizeWorking = false;
+            });
+        },
         getCacheSize() {
             if (this.getCacheSizeWorking) return;
             this.getCacheSizeWorking = true;
@@ -117,10 +192,10 @@ export default defineComponent({
         },
         //清理缓存
         clearCache() {
-            if(this.clearCacheWorking)return;
+            if (this.clearCacheWorking) return;
 
             this.clearCacheWorking = true;
-            
+
             this.$g.http.send('/api/setting/clearCache', 'get').then((res) => {
                 if (res.status) {
                     this.$g.tipbox.success(res.msg);
@@ -141,7 +216,8 @@ export default defineComponent({
             this.$g.http.send('/api/setting/sysConfig', 'get').then((res) => {
                 if (res.status) {
                     this.version = res.data.version;
-                    this.github_repo = res.data.github_repo
+                    this.github_repo = res.data.UPDATE_REPO;
+                    this.lang = res.data.LANGUAGE;
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);

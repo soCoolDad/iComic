@@ -16,6 +16,7 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 import PageHeader from './components/PageHeader.vue';
+import { i18n } from './main'; 
 
 export default defineComponent({
   name: 'App',
@@ -24,8 +25,28 @@ export default defineComponent({
   },
   mounted() {
     //console.log('onload');
+      this.load();
   },
   methods: {
+      load() {
+          this.$g.http.send('/api/setting/getAllLang', 'get').then((res) => {
+              if (res.status) {
+                  let langs = (res.data || [])
+
+                  langs.forEach((item) => {
+                      try {
+                          i18n.global.setLocaleMessage(item.id, item.data)
+                      } catch (error) {
+                          console.log("set lang error",error);
+                      }
+                  });
+
+                  this.$nextTick(() => {
+                    i18n.global.locale.value = localStorage.getItem('lang') || 'lang_zh_cn';
+                  });
+              }
+          });
+      }
   }
 });
 </script>

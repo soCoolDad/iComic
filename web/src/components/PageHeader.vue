@@ -2,15 +2,15 @@
   <div class="hidden-sm-and-down">
     <el-menu mode="horizontal" default-active="/library" @select="handleSelect">
       <el-menu-item index="/library">
-        <h1>iComic</h1>
+        <h1>{{$t('home.title')}}</h1>
       </el-menu-item>
       <template v-for="menu in menus" :key="menu.key">
         <el-sub-menu v-if="menu.subs && menu.subs.length > 0" :index="menu.key">
-          <template #title>{{ menu.title }}</template>
-          <el-menu-item v-for="sub in menu.subs" :key="sub.key" :index="sub.key">{{ sub.title }}</el-menu-item>
+          <template #title>{{ $t(menu.title) }}</template>
+          <el-menu-item v-for="sub in menu.subs" :key="sub.key" :index="sub.key">{{ $t(sub.title) }}</el-menu-item>
         </el-sub-menu>
         <el-menu-item v-else :index="menu.key">
-          {{ menu.title }}
+          {{ $t(menu.title) }}
         </el-menu-item>
       </template>
     </el-menu>
@@ -37,11 +37,11 @@
           </el-menu-item>
           <template v-for="menu in menus" :key="menu.key">
             <el-sub-menu v-if="menu.subs && menu.subs.length > 0" :index="menu.key">
-              <template #title>{{ menu.title }}</template>
-              <el-menu-item v-for="sub in menu.subs" :key="sub.key" :index="sub.key">{{ sub.title }}</el-menu-item>
+              <template #title>{{ $t(menu.title) }}</template>
+              <el-menu-item v-for="sub in menu.subs" :key="sub.key" :index="sub.key">{{ $t(sub.title) }}</el-menu-item>
             </el-sub-menu>
             <el-menu-item v-else :index="menu.key">
-              {{ menu.title }}
+              {{ $t(menu.title) }}
             </el-menu-item>
           </template>
         </el-menu>
@@ -52,26 +52,34 @@
 </template>
 
 <script lang="ts">
+import { load } from 'cheerio';
 import { defineComponent } from 'vue';
 export default defineComponent({
   name: 'PageHeader',
   data: () => ({
     activeIndex: '/library',
     isCollapse: false,
-    menus: [
-      // { title: "库", path: "/", key: "library" },
-      {
-        title: "下载", key: "download",
-        subs: [
-          { title: "下载", path: "/download", key: "download" },
-          { title: "任务", path: "/download_task", key: "download_task" },
-        ]
-      },
-      { title: "插件", path: "/plugin", key: "plugin" },
-      { title: "设置", path: "/setting", key: "setting" }
-    ]
+    menus: [] as any[]
   }),
+  mounted() {
+    this.load();
+  },
   methods: {
+    load() {
+      let $t = (t)=>t;
+
+      this.menus = [
+        {
+          title: $t("download.title"), key: "download",
+          subs: [
+            { title: $t("download.download"), path: "/download", key: "download" },
+            { title: $t("download.download_task"), path: "/download_task", key: "download_task" },
+          ]
+        },
+        { title: $t("plugin.title"), path: "/plugin", key: "plugin" },
+        { title: $t("setting.title"), path: "/setting", key: "setting" }
+      ]
+    },
     handleSelect(key: string, keyPath: string[]) {
       //console.log(key, keyPath)
       //路由跳转

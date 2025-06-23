@@ -593,15 +593,5 @@ export default defineComponent({
             color: black;
         }
     }
-
-    @media (prefers-color-scheme: dark) {
-        // 夜间模式样式
-        &.read_mode {
-            .scroller{
-                background-color: #202020;
-                color: #848484;
-            }
-        }
-    }
 }
 </style>

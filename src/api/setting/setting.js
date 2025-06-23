@@ -4,13 +4,47 @@ const path = require('path');
 const fs = require('fs');
 const currentVersion = require('../../../package.json').version;
 class setting {
+    config_path = "";
+    config = {};
+    init(config_path) {
+        this.config_path = path.join(config_path, "system.json");
+        if (fs.existsSync(this.config_path)) {
+            this.config = JSON.parse(fs.readFileSync(this.config_path, 'utf-8'));
+            this.config.version = currentVersion;
+        }
+    }
     sysConfig() {
         return {
-            status: true,
-            data: {
-                version: currentVersion,
-                github_repo: process.env.UPDATE_REPO
+            status: (this.config ? true : false),
+            data: this.config
+        }
+    }
+
+    saveConfig(req, res, helpers) {
+        let config_name = req.body.config_name;
+        let config_value = req.body.config_value;
+
+        this.config[config_name] = config_value;
+
+        return this.saveConfigFile();
+    }
+
+    saveConfigFile() {
+        //保存配置文件
+        try {
+            if (this.config && this.config_path) {
+                fs.writeFileSync(this.config_path, JSON.stringify(this.config), 'utf-8');
             }
+        } catch (error) {
+            return {
+                status: false,
+                msg: `保存失败: ${error.message}`
+            }
+        }
+
+        return {
+            status: true,
+            msg: "保存成功"
         }
     }
 

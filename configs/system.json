@@ -1,9 +1,1 @@
-{
-    "ICOMIC_VIRTUAL_DEVICE": [
-        "iComic/get 0.0.2"
-    ],
-    "ICOMIC_VIRTUAL_DEVICE_INDEX": 0,
-    "LANGUAGE": "lang_zh_cn",
-    "UPDATE_REPO": "soCoolDad/iComic",
-    "HTTP_RETRY": 3
-}
+{"ICOMIC_VIRTUAL_DEVICE":["ICOMIC/GETER V0.0.3"],"ICOMIC_VIRTUAL_DEVICE_INDEX":0,"LANGUAGE":"lang_zh_cn","UPDATE_REPO":"soCoolDad/iComic","GITHUB_TOKEN":"","version":"0.0.16"}
