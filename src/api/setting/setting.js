@@ -5,7 +5,7 @@ const fs = require('fs');
 const currentVersion = require('../../../package.json').version;
 class setting {
     config_path = "";
-    config = {};
+    config = { version: currentVersion };
     init(config_path) {
         this.config_path = path.join(config_path, "system.json");
         if (fs.existsSync(this.config_path)) {

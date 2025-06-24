@@ -21,8 +21,9 @@ COPY web web
 
 RUN mkdir configs
 # 2. #忽略其他的插件，只上传必要的插件，嘿嘿
-COPY configs/plugin/cbzFileParse configs/plugin/cbz_file_parse
-COPY configs/plugin/cbzFileParse configs/plugin/ictz_file_parse
+COPY configs/system.json configs/system.json
+COPY configs/plugin/cbz_file_parse configs/plugin/cbz_file_parse
+COPY configs/plugin/ictz_file_parse configs/plugin/ictz_file_parse
 COPY configs/plugin/lang-en configs/plugin/lang-en  
 COPY configs/plugin/lang-zh-cn configs/plugin/lang-zh-cn
 
@@ -41,7 +42,7 @@ RUN npm install -g cnpm && \
 VOLUME /configs
 EXPOSE 3000
 ENV NODE_ENV=production \
-    NODE_OPTIONS="--max-old-space-size=4096 --max-semi-space-size=1024" \
+    NODE_OPTIONS="--max-old-space-size=512 --max-semi-space-size=512" \
     CONFIG_DIR="/configs" \
     SERVER_PORT=3000 \
     UPDATE_REPO="soCoolDad/iComic" \
