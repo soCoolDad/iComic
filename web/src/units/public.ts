@@ -11,26 +11,6 @@ export class Http {
 
     async send(url: string, method: string, data: object = {}) {
         try {
-            /*
-            const authStore = useAuthStore(); // 获取 Pinia 的 store 实例
-            const token = authStore.token; // 从状态管理中获取用户登录授权信息 
-            const headers = {
-                Authorization: `Bearer ${token}` // 设置请求头部，携带用户登录授权信息
-            };
-
-            const whitelist = ['/api/user/login', 
-                               '/api/user/create' , 
-                               '/api/setting/getAllLang'] 
-
-            if (!token && !whitelist.includes(url)) {
-                return {
-                    status: false,
-                    data: null,
-                    msg: "请先登录"
-                }
-            }
-            */
-
             const config: any = {
                 url: this.baseURL + url,
                 method,

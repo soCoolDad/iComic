@@ -132,12 +132,6 @@ export default defineComponent({
             }).finally(() => {
                 this.ajaxWorking = false;
             });
-
-            //   this.$g.http.send('/api/user/create', 'post').then((res) => {
-            //     console.log('onLoad success', res);
-            //   }).catch((err) => {
-            //     console.log('onLoad error', err);
-            //   });
         },
         search() {
             if (this.ajaxWorking) {
