@@ -168,15 +168,23 @@ class Cbz_File_Parse extends FileParserPlugin {
                 const dirPath = path.dirname(entry.name);
                 const parts = path.basename(dirPath);
 
-                //过滤目录，非图片文件，.开头文件 ._开头文件
-                if (
+                //过滤目录，非图片文件，.开头文件 ._开头文件 */cover.png
+                const shouldSkip = (
                     entry.isDirectory ||
                     !/\.(jpe?g|png|gif|bmp|webp)$/i.test(entry.name) ||
-                    /^\./.test(entry.name) ||
-                    /^\._/.test(entry.name) ||
-                    systemFiles.some(f => entry.name.startsWith(f) || entry.name.includes('/' + f))
-                ) {
-                    continue; // 跳过该次循环，进入下一个 i
+                    /(^|[\\\/])\./.test(entry.name) ||
+                    /(^|[\\\/])_/.test(entry.name) ||
+                    ///(^|\/|\\)cover\.(png|jpe?g|gif|bmp|webp)$/i.test(entry.name) ||  // 覆盖所有封面文件
+                    systemFiles.some(f => {
+                        const normalizedEntry = entry.name.replace(/\\/g, '/');
+                        return normalizedEntry === f ||
+                            normalizedEntry.startsWith(f + '/') ||
+                            normalizedEntry.includes('/' + f + '/');
+                    })
+                );
+
+                if (shouldSkip) {
+                    continue;
                 }
 
                 // 如果当前名称是 **/cover.* 或者 **/Cover.*
@@ -196,6 +204,8 @@ class Cbz_File_Parse extends FileParserPlugin {
                     // console.log('coverBuffer', coverEntry)
                     const coverBuffer = await zip.entryData(coverEntry.name);
                     newConfig.cover_image = `data:image/${path.extname(coverEntry.name).slice(1)};base64,${coverBuffer.toString('base64')}`;
+
+                    continue;
                 }
 
                 //if (i < 10) console.log(entry);
@@ -407,7 +417,7 @@ class Cbz_File_Parse extends FileParserPlugin {
                     if (file === 'node_modules') continue;
                     // 排除.开头的目录
                     if (file.startsWith('.')) continue;
-                    
+
                     scanDir(filePath); // 递归处理子目录
                 } else if (stat.isFile()) {
                     // 排除json文件

@@ -1,10 +1,10 @@
 <template>
     <div class="download_task">
-        <h1 class="title">Download Task</h1>
+        <h1 class="title">{{ $t('download_task.title') }}</h1>
         <div class="dataBox">
             <el-table :data="list" stripe style="width: 100%">
-                <el-table-column label="名称" prop="name"></el-table-column>
-                <el-table-column label="进度">
+                <el-table-column :label="$t('download_task.col_name')" prop="name"></el-table-column>
+                <el-table-column :label="$t('download_task.col_progress')">
                     <template #default="scope">
                         <div class="detail">
                             <div class="title">
@@ -32,18 +32,21 @@
                         </div>
                     </template>
                 </el-table-column>
-                <el-table-column label="信息" width="180">
+                <el-table-column :label="$t('download_task.col_info')" width="180">
                     <template #default="scope">
                         <el-row class="downloadStatus">
                             <el-col :span="12">
                                 <div class="downloadStatus">
                                     <!-- 0已添加未开始 1正在下载 2下载完成 3下载失败 4暂停下载 5已删除 -->
-                                    <span v-if="scope.row.status == 0">等待下载</span>
-                                    <span v-if="scope.row.status == 1">正在下载</span>
-                                    <span v-if="scope.row.status == 2">下载完成</span>
-                                    <span v-if="scope.row.status == 3">下载失败</span>
-                                    <span v-if="scope.row.status == 4">暂停下载</span>
-                                    <span v-if="scope.row.status == 5">已删除</span>
+                                    <span v-if="scope.row.status == 0">{{ $t('download_task.col_status_wait') }}</span>
+                                    <span v-if="scope.row.status == 1">{{ $t('download_task.col_status_downloading')
+                                        }}</span>
+                                    <span v-if="scope.row.status == 2">{{ $t('download_task.col_status_finish')
+                                        }}</span>
+                                    <span v-if="scope.row.status == 3">{{ $t('download_task.col_status_error') }}</span>
+                                    <span v-if="scope.row.status == 4">{{ $t('download_task.col_status_pause') }}</span>
+                                    <span v-if="scope.row.status == 5">{{ $t('download_task.col_status_delete')
+                                        }}</span>
                                 </div>
                             </el-col>
                             <el-col :span="12">
@@ -54,14 +57,17 @@
                         </el-row>
                     </template>
                 </el-table-column>
-                <el-table-column label="操作">
+                <el-table-column :label="$t('download_task.col_action')">
                     <template #default="scope">
                         <div class="downloadBtnBox">
                             <el-button v-if="scope.row.status == 0 || scope.row.status == 3 || scope.row.status == 4"
-                                type="primary" @click="handleDownload_begin(scope.row)">开始</el-button>
+                                type="primary" @click="handleDownload_begin(scope.row)">{{
+                                    $t('download_task.btn_action_start') }}</el-button>
                             <el-button v-if="scope.row.status == 1" type="primary"
-                                @click="handleDownload_pause(scope.row)">暂停</el-button>
-                            <el-button type="danger" @click="handleDownload_delete(scope.row)">删除</el-button>
+                                @click="handleDownload_pause(scope.row)">{{ $t('download_task.btn_action_pause')
+                                }}</el-button>
+                            <el-button type="danger" @click="handleDownload_delete(scope.row)">{{
+                                $t('download_task.btn_action_delete') }}</el-button>
                         </div>
                     </template>
                 </el-table-column>
@@ -70,7 +76,7 @@
         <div class="hide">
             <el-dialog v-model="showErrors" :title="curItem?.name" width="500" align-center>
                 <div class="readToBox">
-                    <div class="tips title">下载中出现的错误</div>
+                    <div class="tips title">{{ $t('download_task.errbox_title') }}</div>
                     <div class="errorBox">
                         <ul class="scrollBox">
                             <li class="scrollItem" v-for="item in curItem?.errors">
@@ -80,7 +86,7 @@
                     </div>
                     <div class="tips text-right">
                         <el-button type="primary" size="large" :loading="ajaxWorking" :disabled="ajaxWorking"
-                            @click="showErrors = false">关闭</el-button>
+                            @click="showErrors = false">{{ $t('download_task.errbox_btn_colse') }}</el-button>
                     </div>
                 </div>
             </el-dialog>
@@ -124,7 +130,7 @@ export default defineComponent({
     methods: {
         showErrorBox(item) {
             this.curItem = item;
-            this.showErrors = true;  
+            this.showErrors = true;
         },
         onload() {
             //
@@ -265,18 +271,21 @@ export default defineComponent({
         align-items: center;
     }
 
-    .readToBox{
+    .readToBox {
         color: #353535;
-        .title{
+
+        .title {
             font-size: 18px;
         }
-        .errorBox{
+
+        .errorBox {
             min-height: 200px;
             max-height: 350px;
             overflow: auto;
             padding-bottom: 10px;
-            .scrollBox{
-                .scrollItem{
+
+            .scrollBox {
+                .scrollItem {
                     list-style-type: decimal;
                     padding: 10px;
                     border: none;

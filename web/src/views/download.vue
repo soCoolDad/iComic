@@ -1,6 +1,6 @@
 <template>
     <div class="download">
-        <h1 class="title">Download</h1>
+        <h1 class="title">{{ $t('download.title') }}</h1>
         <el-row :gutter="10">
             <el-col :xs="23" :sm="23" :md="12" :lg="12" :xl="12">
                 <el-input v-model="keyword" :placeholder="input_placeholder" />
@@ -11,8 +11,8 @@
                 </el-select>
             </el-col>
             <el-col :xs="4" :sm="4" :md="4" :lg="4" :xl="4" class="hidden-sm-and-down">
-                <el-button @click="search" type="primary" :disabled="ajaxWorking"
-                    :loading="ajaxWorking">search</el-button>
+                <el-button @click="search" type="primary" :disabled="ajaxWorking" :loading="ajaxWorking">{{
+                    $t('download.search') }}</el-button>
             </el-col>
         </el-row>
         <el-row class="hidden-sm-and-up padding-top-10 text-right">
@@ -22,33 +22,36 @@
                 </el-select>
             </el-col>
             <el-col :xs="7" :sm="7" :md="7" :lg="7" :xl="7">
-                <el-button width="100%" @click="search" :Loading="ajaxWorking">search</el-button>
+                <el-button width="100%" @click="search" :Loading="ajaxWorking">{{ $t('download.search') }}</el-button>
             </el-col>
         </el-row>
 
         <div class="searchRetBox">
             <div class="empty" v-if="list.length == 0">
-                <template v-if="keyword && !ajaxWorking && searched">
-                    <el-empty :description="`${keyword} no result`" />
+                <template v-if="keyword && ajaxWorking">
+                    <el-empty :description="$t('download.searching', keyword)" />
+                </template>
+                <template v-else-if="keyword && !ajaxWorking && searched">
+                    <el-empty :description="$t('download.no_result', keyword)" />
                 </template>
                 <template v-else>
-                    <el-empty description="总有你想知道的" />
+                    <el-empty :description="$t('download.standby')" />
                 </template>
             </div>
             <div class="hasData" v-else>
                 <el-table :data="list" stripe style="width: 100%">
-                    <el-table-column label="封面" width="130">
+                    <el-table-column :label="$t('download.cover')" width="130">
                         <template #default="scope">
                             <div class="cover_image">
                                 <el-image class="image" fit="cover" loading="lazy" :src="scope.row.cover_image" lazy />
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column label="详情">
+                    <el-table-column :label="$t('download.detail')">
                         <template #default="scope">
                             <div class="detail">
                                 <div class="title">
-                                    <div>标题</div>
+                                    <div>{{$t('download.col_title')}}</div>
                                     <div>
                                         <b>
                                             {{ scope.row.title }}
@@ -56,7 +59,7 @@
                                     </div>
                                 </div>
                                 <div class="description">
-                                    <div>简介</div>
+                                    <div>{{$t('download.col_description')}}</div>
                                     <div class="showTowLine">
                                         {{ scope.row.description }}
                                     </div>
@@ -64,10 +67,10 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column label="下载" width="130">
+                    <el-table-column :label="$t('download.add_to_col')" width="130">
                         <template #default="scope">
                             <div class="downloadBtnBox">
-                                <el-button type="primary" @click="handleDownload(scope.row)">下载</el-button>
+                                <el-button type="primary" @click="handleDownload(scope.row)">{{ $t('download.add_to_task') }}</el-button>
                             </div>
                         </template>
                     </el-table-column>
@@ -95,9 +98,7 @@ export default defineComponent({
             keyword: "",
             plugin_select: "",
             searched: false,
-            plugins: [
-                { name: "请选择", id: "", placeholder: "请输入关键词" }
-            ],
+            plugins: [] as Array<{ name: string, id: string, placeholder: string }>,
             list: [],
             ajaxWorking: false
         };

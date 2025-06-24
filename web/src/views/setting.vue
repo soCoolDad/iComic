@@ -61,23 +61,24 @@
             </div>
         </div>
         <div class="hide">
-            <el-dialog v-model="show_update" :title="`新版本[${has_update_new_version}]`" width="500" align-center>
+            <el-dialog v-model="show_update" :title="`${$t('update.new_version')}[${has_update_new_version}]`"
+                width="500" align-center>
                 <div class="readToBox">
                     <div class="releaseNotes">
-                        <div class="tips title">更新须知</div>
+                        <div class="tips title">{{ $t('update.update_info') }}</div>
                         <div class="tips">
                             <b style="color: red;">
-                                请备份好数据！请备份好数据！请备份好数据！
+                                {{ $t('update.warning') }}
                             </b>
                         </div>
-                        <div class="tips">如果您的数据没有持久化保存，更新后将会丢失(插件，库，数据)</div>
-                        <div class="tips">更新过程中会关闭服务，具体进度请在Docker里查看对应的容器日志</div>
-                        <div class="tips title">更新日志:{{ has_update_date }}</div>
+                        <div class="tips">{{ $t('update.warning_tip') }}</div>
+                        <div class="tips">{{ $t('update.warning_tip2') }}</div>
+                        <div class="tips title">{{ $t('update.releaseNotes') }}:{{ has_update_date }}</div>
                         <div class="tips">{{ has_update_releaseNotes }}</div>
                     </div>
                     <div class="tips text-right">
                         <el-button type="danger" size="large" :loading="ajaxWorking" :disabled="ajaxWorking"
-                            @click="onUpdateSystem">更新</el-button>
+                            @click="onUpdateSystem">{{ $t('update.update') }}</el-button>
                     </div>
                 </div>
             </el-dialog>
@@ -153,7 +154,7 @@ export default defineComponent({
                 config_value
             }).then((res) => {
                 if (res.status) {
-                    this.$g.tipbox.success(res.msg);
+                    this.$g.tipbox.success(this.$t(res.msg, ...(res.i18n_params || [])));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);

@@ -1,9 +1,9 @@
 <template>
     <div class="plugins">
-        <h1 class="title">Plugins</h1>
+        <h1 class="title">{{ $t('plugin.title') }}</h1>
         <div class="dataBox">
             <el-table :data="list" stripe style="width: 100%">
-                <el-table-column label="插件">
+                <el-table-column :label="$t('plugin.plugin')">
                     <template #default="scope">
                         <div class="detail">
                             <div class="title">
@@ -16,12 +16,16 @@
                             </div>
                             <div class="title">
                                 <div class="padding-top-10">
-                                    <el-tag v-if="scope.row.type == 'language'">语言包</el-tag>
-                                    <el-tag v-if="scope.row.type == 'search'">搜索库</el-tag>
-                                    <el-tag v-if="scope.row.type == 'file-parser'">文件解析</el-tag>
+                                    <el-tag v-if="scope.row.type == 'language'">{{ $t('plugin.type_language')
+                                        }}</el-tag>
+                                    <el-tag v-if="scope.row.type == 'search'">{{ $t('plugin.type_search') }}</el-tag>
+                                    <el-tag v-if="scope.row.type == 'file-parser'">{{ $t('plugin.type_parse')
+                                        }}</el-tag>
                                     <span>&nbsp;</span>
-                                    <el-tag v-if="scope.row.installed == true" type="success">依赖安装完成</el-tag>
-                                    <el-tag v-if="scope.row.installed == false && scope.row.need_install == true" type="danger">需安装依赖</el-tag>
+                                    <el-tag v-if="scope.row.installed == true" type="success">{{
+                                        $t('plugin.install_success') }}</el-tag>
+                                    <el-tag v-if="scope.row.installed == false && scope.row.need_install == true"
+                                        type="danger">{{ $t('need_install') }}</el-tag>
                                 </div>
                             </div>
                             <div class="description">
@@ -32,10 +36,12 @@
                         </div>
                     </template>
                 </el-table-column>
-                <el-table-column label="管理" width="180">
+                <el-table-column :label="$t('plugin.manage')" width="180">
                     <template #default="scope">
                         <div class="downloadBtnBox">
-                            <el-button type="danger" v-if="scope.row.need_install" :disabled="scope.row.need_install == false" :loading="ajaxWorking" @click="handlePlugin_install(scope.row)">安装依赖</el-button>
+                            <el-button type="danger" v-if="scope.row.need_install"
+                                :disabled="scope.row.need_install == false" :loading="ajaxWorking"
+                                @click="handlePlugin_install(scope.row)">{{ $t('plugin.install_dependency') }}</el-button>
                         </div>
                     </template>
                 </el-table-column>

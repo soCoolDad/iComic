@@ -1,10 +1,10 @@
 <template>
     <div class="read" :class="{ 'read_mode': plugin_content_type }">
         <div class="loading" v-show="page_loading || page_error">
-            <el-alert v-if="page_loading" type="primary" title="Loading..." description="Page loading, please wait..."
-                show-icon />
-            <el-alert v-if="page_error" type="error" title="Error" :description="`Page error:${page_error}`"
-                show-icon />
+            <el-alert v-if="page_loading" type="primary" :title="$t('reader.loading_title')"
+                :description="$t('reader.loading_description')" show-icon />
+            <el-alert v-if="page_error" type="error" :title="$t('reader.loading_error_title')"
+                :description="$t('reader.loading_error_description', page_error)" show-icon />
         </div>
 
         <div class="reader_box" :class="{ 'hide_bar': !show_bar }" @click="show_bar = !show_bar">
@@ -414,7 +414,7 @@ export default defineComponent({
         top: 0;
         right: 0;
         bottom: 0;
-        
+
         .header {
             position: fixed;
             display: flex;
@@ -588,7 +588,7 @@ export default defineComponent({
     }
 
     &.read_mode {
-        .scroller{
+        .scroller {
             background-color: #fcfcfc;
             color: black;
         }

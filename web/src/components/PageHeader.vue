@@ -72,8 +72,8 @@ export default defineComponent({
         {
           title: $t("download.title"), key: "download",
           subs: [
-            { title: $t("download.download"), path: "/download", key: "download" },
-            { title: $t("download.download_task"), path: "/download_task", key: "download_task" },
+            { title: $t("download.search"), path: "/download", key: "download" },
+            { title: $t("download_task.title"), path: "/download_task", key: "download_task" },
           ]
         },
         { title: $t("plugin.title"), path: "/plugin", key: "plugin" },

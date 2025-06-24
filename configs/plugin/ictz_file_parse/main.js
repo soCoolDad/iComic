@@ -168,10 +168,9 @@ class Ictz_File_Parse extends FileParserPlugin {
                 const dirPath = path.dirname(entry.name);
                 const parts = path.basename(dirPath);
 
-                //过滤目录，非图片文件，.开头文件 ._开头文件
+                //过滤目录，.开头文件 ._开头文件
                 if (
                     entry.isDirectory ||
-                    !/\.(txt)$/i.test(entry.name) ||
                     /^\./.test(entry.name) ||
                     /^\._/.test(entry.name) ||
                     systemFiles.some(f => entry.name.startsWith(f) || entry.name.includes('/' + f))
@@ -183,12 +182,6 @@ class Ictz_File_Parse extends FileParserPlugin {
                 // 强制生成cover_image
                 if (/\/cover\..*$/i.test(entry.name)) {
                     // 处理 cover 文件
-                    coverEntry = null;
-                    newConfig.cover_image = "";
-                    //console.log("find cover", entry.name);
-                }
-
-                if (!coverEntry && !newConfig.cover_image) {
                     // 处理cover_image
                     coverEntry = entry;
 
@@ -196,24 +189,23 @@ class Ictz_File_Parse extends FileParserPlugin {
                     // console.log('coverBuffer', coverEntry)
                     const coverBuffer = await zip.entryData(coverEntry.name);
                     newConfig.cover_image = `data:image/${path.extname(coverEntry.name).slice(1)};base64,${coverBuffer.toString('base64')}`;
-                }
+                    continue;
+                } else if (/\.(txt)$/i.test(entry.name)) {
+                    if (parts.length > 1) {
+                        // /目录名/*.*
+                        const dir = parts;
+                        if (!dirMap[dir]) {
+                            dirMap[dir] = { title: dir, region: [] };
+                        }
 
-                //if (i < 10) console.log(entry);
-
-                if (parts.length > 1) {
-                    // /目录名/*.*
-                    const dir = parts;
-                    if (!dirMap[dir]) {
-                        dirMap[dir] = { title: dir, region: [] };
+                        dirMap[dir].region.push(txtFile.index);
+                    } else {
+                        // /*.* 没有目录结构
+                        page_list.push({
+                            title: path.basename(entry.name),
+                            region: [txtFile.index]
+                        });
                     }
-
-                    dirMap[dir].region.push(txtFile.index);
-                } else {
-                    // /*.* 没有目录结构
-                    page_list.push({
-                        title: path.basename(entry.name),
-                        region: [txtFile.index]
-                    });
                 }
             }
             // 合并目录结构的page对象

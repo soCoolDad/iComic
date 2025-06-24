@@ -2,18 +2,18 @@
     <div class="library">
         <el-row>
             <el-col :span="12">
-                <h1 class="title">library</h1>
+                <h1 class="title">{{ $t('library.title') }}</h1>
             </el-col>
             <el-col :span="12" class="center right">
-                <el-button type="primary" @click="onScan" :loading="ajaxWorking">扫描</el-button>
+                <el-button type="primary" @click="onScan" :loading="ajaxWorking">{{ $t('library.scan') }}</el-button>
             </el-col>
         </el-row>
         <div class="empty" v-if="list.length == 0">
-            <el-empty description="请先扫描一下库吧" />
+            <el-empty :description="$t('library.empty')" />
         </div>
         <div class="has_data" v-else>
             <div class="data_box" v-if="continues.length > 0">
-                <div class="title">继续阅读</div>
+                <div class="title">{{ $t('library.continue') }}</div>
                 <el-row :gutter="20">
                     <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" class="padding-button-20"
                         v-for="item in continues" :key="item.id">
@@ -22,7 +22,7 @@
                 </el-row>
             </div>
             <div class="data_box" v-if="new_adds.length > 0">
-                <div class="title">未解析</div>
+                <div class="title">{{ $t('library.not_parsed') }}</div>
                 <el-row :gutter="20">
                     <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" class="padding-button-20" v-for="item in new_adds"
                         :key="item.id">
@@ -31,7 +31,7 @@
                 </el-row>
             </div>
             <div class="data_box">
-                <div class="title">所有文件</div>
+                <div class="title">{{ $t('library.all_files') }}</div>
                 <el-row :gutter="20">
                     <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" class="padding-button-20" v-for="item in list"
                         :key="item.id">
@@ -44,8 +44,8 @@
             <el-dialog v-model="showReadTo" :title="curItem?.name" width="500" align-center>
                 <div class="readToBox" v-if="curItem?.status == 0 || curItem?.status == 3">
                     <div class="tips desc line-tow">{{ curItem?.description }}</div>
-                    <div class="tips title">该文件还未解析</div>
-                    <div class="tips">请选择解析插件进行解析</div>
+                    <div class="tips title">{{ $t('library.not_parsed_file') }}</div>
+                    <div class="tips">{{ $t('library.select_parse_plugin') }}</div>
                     <el-select v-model="select_plugin" placeholder="select plugin">
                         <el-option v-for="item in plugin_list" :label="item.name" :value="item.id">
                             {{ item.name }}
@@ -56,12 +56,12 @@
                         <!-- <el-button type="danger" size="large" :loading="ajaxWorking" :disabled="ajaxWorking"
                             @click="onReadToParse">删除</el-button> -->
                         <el-button type="primary" size="large" :loading="ajaxWorking" :disabled="ajaxWorking"
-                            @click="onReadToParse">解析</el-button>
+                            @click="onReadToParse">{{ $t('library.parse') }}</el-button>
                     </div>
                 </div>
                 <div class="readToBox" v-else-if="curItem?.status == 2">
                     <div class="tips desc line-tow">{{ curItem?.description }}</div>
-                    <div class="tips title">选择章节</div>
+                    <div class="tips title">{{$t('library.select_chapter')}}</div>
                     <!-- <el-select v-model="select_chapter" placeholder="select chapter">
                         <el-option v-for="(item, index) in chapter_list" :label="item.title" :value="index">
                             {{ item.title }}
@@ -70,7 +70,7 @@
                     <el-cascader style="width: 100%;" :options="options" :show-all-levels="false"
                         v-model="cascader_value" placeholder="select chapter"></el-cascader>
 
-                    <div class="tips">请选择解析插件进行阅读</div>
+                    <div class="tips">{{ $t('library.select_parse_plugin') }}</div>
                     <el-select v-model="select_plugin" placeholder="select plugin">
                         <el-option v-for="item in plugin_list" :label="item.name" :value="item.id">
                             {{ item.name }}
@@ -80,7 +80,7 @@
                         <!-- <el-button type="danger" size="large" :loading="ajaxWorking" :disabled="ajaxWorking"
                             @click="onReadToParse">删除</el-button> -->
                         <el-button type="primary" size="large" :loading="ajaxWorking" :disabled="ajaxWorking"
-                            @click="onReadToRead">开始阅读</el-button>
+                            @click="onReadToRead">{{ $t('library.start_read') }}</el-button>
                     </div>
                 </div>
             </el-dialog>
@@ -327,7 +327,7 @@ export default defineComponent({
 
                     list.forEach((item) => {
                         //转换时间为时间戳
-                        item.read_update_time = (new Date(item.read_update_time).getTime()) || 0;    
+                        item.read_update_time = (new Date(item.read_update_time).getTime()) || 0;
 
                         //console.log(item.read_update_time)
 
@@ -339,7 +339,9 @@ export default defineComponent({
                     });
 
                     //按照read_page_time排序
-                    continues.sort((a, b) => a.read_update_time < b.read_update_time);
+                    continues.sort((a, b) => {
+                        return b.read_update_time - a.read_update_time;
+                    });
 
                     this.list = list;
                     this.continues = continues;

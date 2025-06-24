@@ -92,6 +92,16 @@ class iComic_http {
                 // 根据协议选择http或https模块
                 const httpModule = urlObj.protocol === 'https:' ? https : http;
 
+                const in_headers = {};
+
+                if (headers) {
+                    for (const key in headers) {
+                        if (headers[key] == null) continue;
+                        if (headers[key] == undefined) continue;
+                        in_headers[key] = headers[key];
+                    }
+                }
+
                 // 设置默认请求头
                 const options = {
                     hostname,
@@ -101,7 +111,7 @@ class iComic_http {
                     headers: {
                         'Content-Type': 'text/html', // 默认内容类型为html
                         ...this.getHeader(),
-                        ...headers // 允许传递自定义头部
+                        ...in_headers // 允许传递自定义头部
                     }
                 };
 
@@ -138,7 +148,7 @@ class iComic_http {
 
                 req.end();
             } catch (error) {
-                console.error("http post error",error);
+                console.error("http post error", error);
                 reject(error);
             } finally {
                 clearTimeout(timeout);
@@ -156,6 +166,16 @@ class iComic_http {
                 const urlObj = new URL(this.normalizeUrl(url));
                 const httpModule = urlObj.protocol === 'https:' ? https : http;
 
+                const in_headers = {};
+
+                if (headers) {
+                    for (const key in headers) {
+                        if (headers[key] == null) continue;
+                        if (headers[key] == undefined) continue;
+                        in_headers[key] = headers[key];
+                    }
+                }
+
                 const options = {
                     hostname: urlObj.hostname,
                     path: urlObj.pathname + (urlObj.search || ''),
@@ -163,7 +183,7 @@ class iComic_http {
                     timeout: this.timeout,
                     headers: {
                         ...this.getHeader(),
-                        ...headers
+                        ...in_headers
                     }
                 };
 
@@ -190,7 +210,7 @@ class iComic_http {
                 req.on('error', reject);
                 req.end();
             } catch (error) {
-                console.error("http get error",error);
+                console.error("http get error", error);
                 reject(error);
             } finally {
                 clearTimeout(timeout);

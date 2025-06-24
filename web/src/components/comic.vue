@@ -8,10 +8,10 @@
             lazy
         />
         <div class="comic_status">
-            <el-tag type="primary" v-if="data?.status == 0">未解析</el-tag>
-            <el-tag type="warning" v-if="data?.status == 1">解析中</el-tag>
-            <el-tag type="success" v-if="data?.status == 2">解析完成</el-tag>
-            <el-tag type="danger" v-if="data?.status == 3">解析失败</el-tag>
+            <el-tag type="primary" v-if="data?.status == 0">{{$t('library.status_not_parsed')}}</el-tag>
+            <el-tag type="warning" v-if="data?.status == 1">{{$t('library.status_parsing')}}</el-tag>
+            <el-tag type="success" v-if="data?.status == 2">{{$t('library.status_parsed')}}</el-tag>
+            <el-tag type="danger" v-if="data?.status == 3">{{$t('library.status_parse_failed')}}</el-tag>
             <!-- 0已添加未解析 1解析中 2解析完成 3解析失败 -->
         </div>
         <div class="infos">
