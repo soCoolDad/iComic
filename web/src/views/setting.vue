@@ -39,7 +39,8 @@
                 <div class="desc">
                     <el-tag type="primary">{{ version }}</el-tag>
                     <span>&nbsp;</span>
-                    <el-tag type="danger" v-if="has_update">{{ $t('setting.has_new_version', has_update_new_version)
+                    <el-tag type="danger" v-if="has_update">{{ $t('setting.has_new_version',
+                        { version: has_update_new_version })
                         }}</el-tag>
                 </div>
                 <div class="buttons">
@@ -87,7 +88,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, version } from 'vue';
 import { i18n } from '../main';
 export default defineComponent({
     name: 'setting',

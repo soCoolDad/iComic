@@ -165,7 +165,26 @@ class UpdateSystem {
             }
 
             // 使用rsync原子替换
-            await runCommand('rsync', ['-a', `${sourceDir}/`, `${CONFIG.rootDir}/`], CONFIG.rootDir);
+            // 只替换必要的文件
+            // 同步单个文件 (不使用 --delete)
+            await runCommand('rsync', ['-a', `${sourceDir}/package.json`, `${CONFIG.rootDir}/`], CONFIG.rootDir);
+            await runCommand('rsync', ['-a', `${sourceDir}/web/package.json`, `${CONFIG.rootDir}/web/`], CONFIG.rootDir);
+
+            // 同步目录 (使用 --delete)
+            await runCommand('rsync', ['-a', '--delete', `${sourceDir}/src/`, `${CONFIG.rootDir}/src/`], CONFIG.rootDir);
+            await runCommand('rsync', ['-a', '--delete', `${sourceDir}/configs/`, `${CONFIG.rootDir}/configs/`], CONFIG.rootDir);
+
+            // 特殊处理 web 目录 (保留 node_modules)
+            await runCommand('rsync', [
+                '-a',
+                '--delete',
+                '--exclude=node_modules/',
+                `${sourceDir}/web/`,
+                `${CONFIG.rootDir}/web/`
+            ], CONFIG.rootDir);
+
+
+            //await runCommand('rsync', ['-a', `${sourceDir}/`, `${CONFIG.rootDir}/`], CONFIG.rootDir);
 
             console.log('update', '安装插件...');
             let source_configs_path = path.join(CONFIG.rootDir, "configs");
@@ -179,8 +198,9 @@ class UpdateSystem {
             console.log('update', '安装新依赖...');
             await runCommand('cnpm', ['install', '--quiet'], CONFIG.rootDir);
             await runCommand('cnpm', ['install', '--quiet'], path.join(CONFIG.rootDir, 'web'));
-            await runCommand('cnpm', ['run', 'build', '--silent'], path.join(CONFIG.rootDir, 'web'));
 
+            console.log('update', '构建新版本...');
+            await runCommand('cnpm', ['run', 'build', '--silent'], path.join(CONFIG.rootDir, 'web'));
         } catch (error) {
             throw new Error(`应用更新失败: ${error.message}`);
         }
