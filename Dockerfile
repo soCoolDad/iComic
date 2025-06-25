@@ -16,7 +16,7 @@ WORKDIR /app
 
 # 1. 复制项目目录
 COPY package*.json ./
-COPY .npmrc ./
+COPY web/package*.json ./web/
 COPY src src
 COPY web web
 
@@ -29,13 +29,14 @@ COPY configs/plugin/lang-en configs/plugin/lang-en
 COPY configs/plugin/lang-zh-cn configs/plugin/lang-zh-cn
 
 # 3. 安装依赖（推荐使用npm或yarn）
+RUN npm install -g cnpm
 RUN mkdir -p /var/log/pm2 && \
-    npm install -g pm2 && \
-    npm install && \
-    cd web && \
-    npm install && \
-    npm run build && \
-    cd .. 
+    cnpm install -g pm2
+RUN cnpm install
+WORKDIR /app/web
+RUN cnpm install
+RUN cnpm run build
+WORKDIR /app
 
 # 4. 暴露配置目录和端口
 VOLUME /configs

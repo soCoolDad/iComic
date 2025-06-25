@@ -169,8 +169,6 @@ class UpdateSystem {
             // 同步单个文件 (不使用 --delete)
             await runCommand('rsync', ['-a', `${sourceDir}/package.json`, `${CONFIG.rootDir}/`], CONFIG.rootDir);
             await runCommand('rsync', ['-a', `${sourceDir}/web/package.json`, `${CONFIG.rootDir}/web/`], CONFIG.rootDir);
-            await runCommand('rsync', ['-a', `${sourceDir}/.npmrc`, `${CONFIG.rootDir}/`], CONFIG.rootDir);
-            await runCommand('rsync', ['-a', `${sourceDir}/web/.npmrc`, `${CONFIG.rootDir}/web/`], CONFIG.rootDir);
 
             // 同步目录 (使用 --delete)
             await runCommand('rsync', ['-a', '--delete', `${sourceDir}/src/`, `${CONFIG.rootDir}/src/`], CONFIG.rootDir);
@@ -181,8 +179,6 @@ class UpdateSystem {
                 '-a',
                 '--delete',
                 '--exclude=node_modules/',
-                '--exclude=package.json',
-                '--exclude=package-lock.json',
                 `${sourceDir}/web/`,
                 `${CONFIG.rootDir}/web/`
             ], CONFIG.rootDir);
@@ -200,11 +196,11 @@ class UpdateSystem {
             }
 
             console.log('update', '安装新依赖...');
-            await runCommand('npm', ['install', '--quiet'], CONFIG.rootDir);
-            await runCommand('npm', ['install', '--quiet'], path.join(CONFIG.rootDir, 'web'));
+            await runCommand('cnpm', ['install', '--quiet'], CONFIG.rootDir);
+            await runCommand('cnpm', ['install', '--quiet'], path.join(CONFIG.rootDir, 'web'));
 
             console.log('update', '构建新版本...');
-            await runCommand('npm', ['run', 'build', '--silent'], path.join(CONFIG.rootDir, 'web'));
+            await runCommand('cnpm', ['run', 'build', '--silent'], path.join(CONFIG.rootDir, 'web'));
         } catch (error) {
             throw new Error(`应用更新失败: ${error.message}`);
         }
