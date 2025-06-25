@@ -245,7 +245,7 @@ export default defineComponent({
                     this.version = res.data.version;
                     this.github_repo = res.data.UPDATE_REPO;
                     this.GITHUB_PAT = res.data.GITHUB_PAT;
-                    this.lang = res.data.LANGUAGE;
+                    this.lang = localStorage.getItem('lang') || res.data.LANGUAGE;
                     this.devices = res.data.ICOMIC_VIRTUAL_DEVICE;
                     this.device = res.data.ICOMIC_VIRTUAL_DEVICE_INDEX;
                 }
