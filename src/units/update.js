@@ -181,6 +181,8 @@ class UpdateSystem {
                 '-a',
                 '--delete',
                 '--exclude=node_modules/',
+                '--exclude=package.json',
+                '--exclude=package-lock.json',
                 `${sourceDir}/web/`,
                 `${CONFIG.rootDir}/web/`
             ], CONFIG.rootDir);
