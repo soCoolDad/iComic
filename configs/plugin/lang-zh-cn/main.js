@@ -89,7 +89,9 @@ class ChineseLanguagePlugin extends LanguagePlugin {
                 clear_cache: "清理缓存",
                 find_new_version: "发现新版本:[{version}]",
                 current_version_is_higher: "当前版本:[{version}]已是最新",
-                current_version_is_new: "版本[{version}]已是最新版本"
+                current_version_is_new: "版本[{version}]已是最新版本",
+                device_title: "请求设备",
+                device_desc:"iComic 在发起请求时所携带的请求头",
             },
             update: {
                 title: "更新",

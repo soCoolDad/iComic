@@ -10,7 +10,14 @@ class setting {
     init(config_path) {
         this.config_path = path.join(config_path, "system.json");
         if (fs.existsSync(this.config_path)) {
-            this.config = JSON.parse(fs.readFileSync(this.config_path, 'utf-8'));
+            try {
+                this.config = JSON.parse(fs.readFileSync(this.config_path, 'utf-8'));
+
+                this.readConfigToEnv();
+            } catch (error) {
+                this.config = { version: currentVersion };
+                console.log("init system.json error", error);
+            }
             this.config.version = currentVersion;
         }
     }
@@ -21,11 +28,33 @@ class setting {
         }
     }
 
+    readConfigToEnv() {
+        (this.config.COPT_TO_EVN).forEach(key => {
+            if (!this.config[key] == undefined) {
+                process.env[key] = this.config[key];
+            }
+        });
+    }
+
     saveConfig(req, res, helpers) {
         let config_name = req.body.config_name;
         let config_value = req.body.config_value;
 
-        this.config[config_name] = config_value;
+        if (config_name == "ICOMIC_VIRTUAL_DEVICE_INDEX") {
+            //判断是否为数字
+            let devices = this.config["ICOMIC_VIRTUAL_DEVICE"] || [];
+            if (!isNaN(config_value)) {
+                if (config_value >= 0 && config_value < devices.length) {
+                    this.config["ICOMIC_VIRTUAL_DEVICE_INDEX"] = config_value;
+                }
+            } else {
+                devices.push(config_value);
+                this.config["ICOMIC_VIRTUAL_DEVICE"] = devices;
+                this.config["ICOMIC_VIRTUAL_DEVICE_INDEX"] = devices.length - 1;
+            }
+        } else {
+            this.config[config_name] = config_value;
+        }
 
         return this.saveConfigFile();
     }
@@ -34,7 +63,8 @@ class setting {
         //保存配置文件
         try {
             if (this.config && this.config_path) {
-                fs.writeFileSync(this.config_path, JSON.stringify(this.config), 'utf-8');
+                fs.writeFileSync(this.config_path, JSON.stringify(this.config, null, 4), 'utf-8');
+                this.readConfigToEnv();
             }
         } catch (error) {
             return {

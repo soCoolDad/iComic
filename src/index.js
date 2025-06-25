@@ -33,10 +33,6 @@ console.log("init", "root dir:", rootDir);
 configDir = process.env.CONFIG_DIR || path.join(rootDir, "configs");
 console.log("init", "config dir:", configDir);
 
-//初始化 setting
-apis.setting.init(configDir);
-console.log("init", "setting dir:", configDir);
-
 // 初始化数据库
 dbDir = path.join(configDir, "db");
 if (fs.existsSync(dbDir) === false) {
@@ -53,9 +49,13 @@ if (helpers.init.check(dbDir) === 0) {
         fs.copySync(path.join(rootDir, "configs"), configDir, { overwrite: true });
     }
 }
-
 helpers.db_query.init(dbDir);
 console.log("init", "db dir:", dbDir);
+
+//初始化 setting
+apis.setting.init(configDir);
+console.log("init", "setting dir:", configDir);
+
 
 // 初始化 plugin
 pluginDir = path.join(configDir, "plugin");

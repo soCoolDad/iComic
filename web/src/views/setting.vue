@@ -35,13 +35,27 @@
                 </div>
             </div>
             <div class="sub_box">
+                <div class="sub_title">{{ $t('setting.device_title') }}</div>
+                <div class="desc">{{ $t('setting.device_desc') }}</div>
+                <div class="desc">
+                    <el-select v-model="device" allow-create filterable placeholder="Devices">
+                        <el-option v-for="(item, index) in devices" :label="item" :value="index">
+                        </el-option>
+                    </el-select>
+                </div>
+                <div class="buttons">
+                    <el-button round type="primary" :loading="ajaxWorking" @click="saveSystem('Device')">{{
+                        $t('setting.save') }}</el-button>
+                </div>
+            </div>
+            <div class="sub_box">
                 <div class="sub_title">{{ $t('setting.version') }}</div>
                 <div class="desc">
                     <el-tag type="primary">{{ version }}</el-tag>
                     <span>&nbsp;</span>
                     <el-tag type="danger" v-if="has_update">{{ $t('setting.has_new_version',
                         { version: has_update_new_version })
-                        }}</el-tag>
+                    }}</el-tag>
                 </div>
                 <div class="buttons">
                     <el-button round type="primary" :loading="ajaxWorking" @click="checkUpdate">{{
@@ -127,6 +141,8 @@ export default defineComponent({
             getCacheSizeWorking: false,
             langs: [] as { value: string, label: string }[],
             lang: "",
+            device: 0,
+            devices: [] as string[],
             clearCacheWorking: false,
             GITHUB_PAT: ""
         }
@@ -147,6 +163,14 @@ export default defineComponent({
                 localStorage.setItem('lang', this.lang);
                 config_name = "LANGUAGE";
                 config_value = this.lang;
+            } else if (key == "GitHub PAT") {
+                config_name = "GITHUB_PAT";
+                config_value = this.GITHUB_PAT;
+            } else if (key == "Device") {
+                config_name = "ICOMIC_VIRTUAL_DEVICE_INDEX";
+                config_value = this.device;
+            } else {
+                return;
             }
 
             this.ajaxWorking = true;
@@ -161,6 +185,7 @@ export default defineComponent({
                 this.$g.tipbox.error(err.message);
             }).finally(() => {
                 this.ajaxWorking = false;
+                this.sysConfig();
             });
         },
         getAllLang() {
@@ -219,7 +244,10 @@ export default defineComponent({
                 if (res.status) {
                     this.version = res.data.version;
                     this.github_repo = res.data.UPDATE_REPO;
+                    this.GITHUB_PAT = res.data.GITHUB_PAT;
                     this.lang = res.data.LANGUAGE;
+                    this.devices = res.data.ICOMIC_VIRTUAL_DEVICE;
+                    this.device = res.data.ICOMIC_VIRTUAL_DEVICE_INDEX;
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
@@ -276,17 +304,19 @@ export default defineComponent({
                         }).catch((err) => {
                             this.$g.tipbox.error(err.message);
                         }).finally(() => {
-                            done()
+                            done();
                             setTimeout(() => {
                                 instance.confirmButtonLoading = false;
                                 // window.location.reload();
                                 // 刷新页面
-                                window.location.reload();
-                            }, 300)
+                                setTimeout(() => {
+                                    window.location.reload();
+                                }, 500);
+                            }, 500)
                             this.ajaxWorking = false;
                         });
                     } else {
-                        done()
+                        done();
                     }
                 }
             });

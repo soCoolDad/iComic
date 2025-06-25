@@ -1,1 +1,16 @@
-{"ICOMIC_VIRTUAL_DEVICE":["ICOMIC/GETER V0.0.3"],"ICOMIC_VIRTUAL_DEVICE_INDEX":0,"LANGUAGE":"lang_en","UPDATE_REPO":"soCoolDad/iComic","GITHUB_PAT":"","version":"0.0.17"}
+{
+    "ICOMIC_VIRTUAL_DEVICE": [
+        "ICOMIC/GETER V0.0.3"
+    ],
+    "ICOMIC_VIRTUAL_DEVICE_INDEX": 0,
+    "LANGUAGE": "lang_zh_cn",
+    "UPDATE_REPO": "soCoolDad/iComic",
+    "GITHUB_PAT": "",
+    "COPT_TO_EVN": [
+        "ICOMIC_VIRTUAL_DEVICE",
+        "ICOMIC_VIRTUAL_DEVICE_INDEX",
+        "LANGUAGE",
+        "UPDATE_REPO",
+        "GITHUB_PAT"
+    ]
+}
