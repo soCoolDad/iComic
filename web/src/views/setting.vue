@@ -41,7 +41,7 @@
                     <span>&nbsp;</span>
                     <el-tag type="danger" v-if="has_update">{{ $t('setting.has_new_version',
                         { version: has_update_new_version })
-                        }}</el-tag>
+                    }}</el-tag>
                 </div>
                 <div class="buttons">
                     <el-button round type="primary" :loading="ajaxWorking" @click="checkUpdate">{{
@@ -155,7 +155,7 @@ export default defineComponent({
                 config_value
             }).then((res) => {
                 if (res.status) {
-                    this.$g.tipbox.success(this.$t(res.msg, ...(res.i18n_params || [])));
+                    this.$g.tipbox.success(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
@@ -200,9 +200,9 @@ export default defineComponent({
 
             this.$g.http.send('/api/setting/clearCache', 'get').then((res) => {
                 if (res.status) {
-                    this.$g.tipbox.success(res.msg);
+                    this.$g.tipbox.success(this.$t(res.msg, res.i18n));
                 } else {
-                    this.$g.tipbox.error(res.msg);
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
@@ -240,15 +240,15 @@ export default defineComponent({
                     this.has_update_date = res.data.publishedAt;
 
                     if (this.has_update) {
-                        this.$g.tipbox.success(`发现新版本:[${this.has_update_new_version}]`);
+                        this.$g.tipbox.success(this.$t('find_new_version', { version: this.has_update_new_version }));
                     } else if (res.data?.isCurrentHigher) {
-                        this.$g.tipbox.success(`版本:[${this.version}]是最新版本`);
+                        this.$g.tipbox.success(this.$t('current_version_is_higher', { version: this.version }));
                     } else {
-                        this.$g.tipbox.success(`当前已是最新版本`);
+                        this.$g.tipbox.success(this.$t('current_version_is_new', { version: this.version }));
                     }
                 } else {
                     this.version = res.currentVersion;
-                    this.$g.tipbox.error(res.msg);
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
@@ -267,9 +267,9 @@ export default defineComponent({
 
                         this.$g.http.send('/api/setting/update', 'post', {}).then((res) => {
                             if (res.status) {
-                                this.$g.tipbox.success(res.msg);
+                                this.$g.tipbox.success(this.$t(res.msg, res.i18n));
                             } else {
-                                this.$g.tipbox.error(res.msg);
+                                this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                             }
                         }).catch((err) => {
                             this.$g.tipbox.error(err.message);

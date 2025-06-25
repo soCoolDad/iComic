@@ -41,7 +41,7 @@ class library {
         } else {
             return {
                 status: false,
-                msg: "请先解析该文件"
+                msg: "server.file_no_parse"
             }
         }
     }
@@ -53,7 +53,7 @@ class library {
         let ret = await helpers.db_query.get('SELECT id, name, page_count, author, description, status, plugin_id, config_path FROM library WHERE id = ?', [library_id]);
 
         if (!ret) {
-            return { status: false, msg: "未找到文件" }
+            return { status: false, msg: "server.no_file" }
         }
 
         ret.tags = helpers.db_query.all('SELECT tag.id, tag.name FROM library_tag LEFT JOIN tag ON library_tag.tag_id = tag.id WHERE library_tag.library_id = ?', [ret.id]);
@@ -102,10 +102,23 @@ class library {
         let library_id = req.body.library_id || req.query.library_id;
         let read_page_progress = req.body.read_page_progress || req.query.read_page_progress;
 
-        if (!library_id || !read_page_progress === undefined) {
+        if (!library_id) {
             return {
                 status: false,
-                msg: "参数错误"
+                msg: "server.param_error",
+                i18n: {
+                    err: "library_id"
+                }
+            }
+        }
+
+        if (!read_page_progress === undefined) {
+            return {
+                status: false,
+                msg: "server.param_error",
+                i18n: {
+                    err: "read_page_progress"
+                }
             }
         }
 

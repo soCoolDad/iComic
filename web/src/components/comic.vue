@@ -2,7 +2,7 @@
     <div class="comicBox" @click="$emit('click')">
         <el-image 
             class="cover_image"
-            :src="`/api/image/coverImage?library_id=${data?.id}&rnd=${(Math.random() * 1000).toFixed(2)}`"
+            :src="`/api/parse/cover?library_id=${data?.id}&rnd=${(Math.random() * 1000).toFixed(2)}`"
             fit="cover"
             loading="lazy"
             lazy

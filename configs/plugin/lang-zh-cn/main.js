@@ -86,7 +86,10 @@ class ChineseLanguagePlugin extends LanguagePlugin {
                 check_new: "检查更新",
                 update: "更新",
                 cache: "缓存",
-                clear_cache: "清理缓存"
+                clear_cache: "清理缓存",
+                find_new_version: "发现新版本:[{version}]",
+                current_version_is_higher: "当前版本:[{version}]已是最新",
+                current_version_is_new: "[{version}]当前已是最新版本"
             },
             update: {
                 title: "更新",
@@ -97,6 +100,48 @@ class ChineseLanguagePlugin extends LanguagePlugin {
                 warning_tip2: "更新过程中可能会关闭服务，具体进度请在Docker里查看对应的容器日志",
                 releaseNotes: "更新日志",
                 update: "更新"
+            },
+            server: {
+                success: "处理成功",
+                error: "处理失败:{msg}",
+                param_error: "参数错误。{msg}",
+                save_success: "保存成功",
+                save_failed: "保存失败：{msg}",
+
+                add_success: "添加成功",
+
+                no_file: "文件不存在",
+                no_file_select: "未选择文件",
+                no_block: "文件不存在",
+                no_config: "配置不存在",
+                no_plugin: "插件不存在",
+                no_plugin_select: "未选择插件",
+                no_library: "库不存在",
+
+                plugin_cant_support_search: "该插件不提供搜索",
+                
+
+                file_no_parse: "文件未解析",
+
+                no_task: "任务不存在",
+                task_running: "任务已在运行中",
+                task_begin: "任务开始",
+                task_has: "任务已存在",
+                task_pause: "任务已暂停",
+                task_delete: "任务已删除",
+
+                scan_complete: "扫描完成:新增{added},删除{deleted}",
+                scan_error: "扫描失败：{msg}",
+
+                parse_begin: "开始解析",
+                parse_complete: "解析完成",
+                parse_begin_multi: "开始解析{parse_count}个文件,共{file_count}个文件",
+
+                install_success: "安装依赖成功",
+                install_error: "安装依赖失败：{msg}",
+
+                install_success_multi: "安装依赖成功：{install_count}个插件，失败：{error_count}个",
+                install_error_multi: "批量安装依赖失败：{msg}"
             }
         };
     }

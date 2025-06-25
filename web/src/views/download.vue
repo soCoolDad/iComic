@@ -128,7 +128,7 @@ export default defineComponent({
                 //this.plugins = res.data;
             }).catch((err) => {
                 //console.log('onLoad error', err);
-                this.$g.tipbox.error(err.msg);
+                this.$g.tipbox.error(this.$t(err.msg, err.i18n));
             }).finally(() => {
                 this.ajaxWorking = false;
             });
@@ -148,7 +148,7 @@ export default defineComponent({
                 if (res.status) {
                     this.list = res.data;
                 } else {
-                    this.$g.tipbox.error(res.msg);
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
@@ -172,17 +172,9 @@ export default defineComponent({
             }).then((res) => {
                 //console.log('onLoad success', res);
                 if (res.status) {
-                    this.$g.tipbox.success(res.msg);
-                    //自动开始下载
-                    // this.$g.http.send('/api/download_task/begin', 'post', {
-                    //     task_id: res.data.task_id
-                    // }).then((res) => {
-                    //     this.$g.tipbox.success(res.msg);
-                    // }).catch((err) => {
-                    //     this.$g.tipbox.error(err.message);
-                    // });
+                    this.$g.tipbox.success(this.$t(res.msg, res.i18n));
                 } else {
-                    this.$g.tipbox.error(res.msg);
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);

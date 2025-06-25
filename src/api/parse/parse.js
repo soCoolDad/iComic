@@ -1,7 +1,7 @@
 const fs = require('fs');
-class imageRader {
-    coverImage(req, res, helpers) {
-        //api/image/coverImage?library_id=1
+class block_reader {
+    cover(req, res, helpers) {
+        //api/parse/cover?library_id=1
         const library_id = req.query.library_id
 
         if (library_id) {
@@ -36,54 +36,57 @@ class imageRader {
         }
     }
 
-    async pageImage(req, res, helpers) {
-        //api/image/pageImage?plugin_id=cbz_file_parse&library_id=1&page=1&image=600
+    async block(req, res, helpers) {
+        //api/parse/block?plugin_id=cbz_file_parse&library_id=1&page=1&image=600
         //console.log("req.query:", req.query);
 
         const plugin_id = req.query.pi;
         const library_id = req.query.li;
         const page = req.query.page;
-        const image = req.query.img;
+        const block = req.query.block;
 
-        if (library_id && page && image && plugin_id) {
+        if (library_id && page && block && plugin_id) {
             let plugin = helpers.plugin.getPlugin(plugin_id);
             let library = helpers.db_query.get('SELECT path,config_path FROM library WHERE id = ?', [library_id]);
 
             if (!library) {
-                return { status: false, msg: "未找到记录" };
+                return { status: false, msg: "server.no_file" };
             }
 
             if (!library.path) {
-                return { status: false, msg: "文件不存在" };
+                return { status: false, msg: "server.no_file" };
             }
 
             if (!library.config_path) {
-                return { status: false, msg: "配置文件不存在" };
+                return { status: false, msg: "server.no_config" };
             }
 
             let library_path = library.path;
             let library_config_path = library.config_path;
 
             if (!fs.existsSync(library_path)) {
-                return { status: false, msg: "文件不存在" };
+                return { status: false, msg: "server.no_file" };
             }
 
             if (!fs.existsSync(library_config_path)) {
-                return { status: false, msg: "配置文件不存在" };
+                return { status: false, msg: "server.no_config" };
             }
 
             if (!plugin) {
-                return { status: false, msg: "插件不存在" };
+                return { status: false, msg: "server.no_plugin" };
             }
 
-            return await plugin.parsePageBlock(library_path, library_config_path, page, image);
+            return await plugin.parsePageBlock(library_path, library_config_path, page, block);
         } else {
             return {
                 status: false,
-                message: 'library_id, page, image are required'
+                message: 'server.param_error',
+                i18n:{
+                    err:"pi(plugin_id) or li(library_id) or page or block"
+                }
             };
         }
     }
 }
 
-module.exports = imageRader
+module.exports = block_reader

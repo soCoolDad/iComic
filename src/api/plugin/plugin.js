@@ -77,7 +77,7 @@ class plugin {
         } else {
             return {
                 status: false,
-                msg: "未找到插件"
+                msg: "server.no_plugin"
             }
         }
     }

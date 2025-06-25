@@ -44,7 +44,7 @@ class BlockDownloader {
 
                 this.page_zip.addBuffer(result.data, filename);
             } else {
-                this.errors.push(`downloader ${this.page_detail_title}:block[${j}] 出错:${result.msg}`);
+                this.errors.push(`downloader ${this.page_detail_title}:block[${j}] error:${result.msg}`);
             }
         }
 
@@ -167,7 +167,7 @@ class download_task {
             // 设置5分钟超时防止永久挂起
             const timeout = setTimeout(() => {
                 cleanup();
-                reject(new Error(`[Timeout] 文件保存超时: ${filePath}`));
+                reject(new Error(`[Save File Timeout]:${filePath}`));
             }, 1000 * 60 * 5);
 
             // 统一清理函数
@@ -229,8 +229,9 @@ class download_task {
         }
 
         if (this.plugin?.type !== "search") {
-            this.errors.push(`插件[${this.plugin_id}]不提供下载`);
-            return { status: false, msg: "该插件不提供下载" }
+            this.errors.push(`Plugin[${this.plugin_id}]not support search`);
+            this.set_status(4);
+            return { status: false, msg: "Plugin not support search" }
         }
 
         console.log("begin download", this.name);
@@ -244,7 +245,7 @@ class download_task {
                 book_detail = await this.plugin.getDetail(this.search_result);
 
                 if (book_detail?.status === false) {
-                    console.error(`重试第${i + 1}次`, `插件[${this.plugin.name}]获取[getDetail]失败:${book_detail.msg}`);
+                    console.error(`Retry:`, i + 1, `Plugin[${this.plugin.name}][getDetail]Error:${book_detail.msg}`);
 
                     if (i == 4) {
                         throw new Error(book_detail.msg);
@@ -254,8 +255,8 @@ class download_task {
                 }
             } catch (error) {
                 this.set_status(4);
-                this.errors.push(`插件[${this.plugin.name}]获取[getDetail]失败:${error.message}`);
-                return { status: false, msg: `插件[${this.plugin.name}]获取[getDetail]失败:${error.message}` }
+                this.errors.push(`Plugin[${this.plugin.name}][getDetail]Error:${error.message}`);
+                return { status: false, msg: `Plugin[${this.plugin.name}][getDetail]失败:${error.message}` }
             }
         }
 
@@ -333,7 +334,7 @@ class download_task {
                         page_detail = await this.plugin.getPageDetail(page);
 
                         if (page_detail?.status === false) {
-                            console.error(`重试第${j + 1}次`, `插件[${this.plugin.name}]获取[getPageDetail]失败:${page_detail?.msg}`);
+                            console.error(`Retry:`, j + 1, `Plugin[${this.plugin.name}][getPageDetail]Error:${page_detail?.msg}`);
                             if (j == 4) {
                                 throw new Error(page_detail?.msg);
                             }
@@ -342,8 +343,8 @@ class download_task {
                         }
                     } catch (e) {
                         this.set_status(4);
-                        this.errors.push(`插件[${this.plugin.name}]获取[getPageDetail]失败:${e.message}`);
-                        return { status: false, msg: `插件[${this.plugin.name}]获取[getPageDetail]失败:${e.message}` }
+                        this.errors.push(`Plugin[${this.plugin.name}][getPageDetail]Error:${e.message}`);
+                        return { status: false, msg: `Plugin[${this.plugin.name}][getPageDetail]Error:${e.message}` }
                     }
                 }
 
@@ -353,7 +354,7 @@ class download_task {
                 let page_detail_blocks = page_detail.blocks;
                 let page_detail_has_error = false;
 
-                console.log("begin download page:", page_detail_title, "共:", page_detail_blocks.length, "个块");
+                console.log("Begin download page:", page_detail_title, "Total:", page_detail_blocks.length, "blocks");
 
                 this.set_current_page_count(page_detail_blocks.length);
 
@@ -363,7 +364,7 @@ class download_task {
                 this.errors = this.errors.concat(errors);
                 page_detail_has_error = errors.length > 0;
 
-                console.log("save page:", page_detail_title, page_zip_path, "begin");
+                console.log("Save page:", page_detail_title, page_zip_path, "begin");
 
                 //如果文件存在就删除文件
                 if (fs.existsSync(page_zip_path)) {
@@ -375,11 +376,12 @@ class download_task {
                 //提前存储cbz
                 let save_result = await this.saveFileByZip(page_zip, page_zip_path);
 
-                console.log("save page:", page_detail_title, page_zip_path, "complete");
-
                 if (save_result !== true) {
-                    this.errors.push(`save page ${page_detail_title} to ${page_zip_path} error`);
+                    console.log("Save page:", page_detail_title, page_zip_path, "error", save_result.message);
+                    this.errors.push(`Save page ${page_detail_title} to ${page_zip_path} error, error:${save_result.message}`);
                     page_detail_has_error = true
+                } else {
+                    console.log("Save page:", page_detail_title, page_zip_path, "complete");
                 }
 
                 //释放内存？？？
@@ -398,10 +400,10 @@ class download_task {
                     this.add_page_complete_count();
                 }
 
-                console.log(`end download page ${page_detail_title} finished:`, `success:${this.page_complete_count}, fail:${this.page_fail_count}`);
+                console.log(`End download page ${page_detail_title} finished:`, `success:${this.page_complete_count}, fail:${this.page_fail_count}`);
             } catch (error) {
-                this.errors.push(`处理page:${i}:失败:${error.message}`);
-                console.error(`处理page:${i}:失败:${error.message}`, error);
+                this.errors.push(`Page:${i}:Error:${error.message}`);
+                console.error(`Page:${i}:Error:${error.message}`, error);
                 this.set_status(4);
                 break;
             }
@@ -418,14 +420,14 @@ class download_task {
             // 动态并发控制配置
             let cpu_count = os.cpus().length;
             let concurrency = 1;
+            let completed = 0;
 
             concurrency = (this.plugin.config?.concurrency || cpu_count);;
             concurrency = Math.min(concurrency, cpu_count);
 
             const limit = pLimit(concurrency);
-            let completed = 0;
 
-            console.log(`开始合并 ${part_files.length} 个part文件，并发数: ${concurrency}`);
+            console.log("Begin merge part count:", part_files.length, `concurrency`, concurrency);
 
             try {
                 await Promise.all(part_files.map(file =>
@@ -452,9 +454,9 @@ class download_task {
                             }
 
                             completed++;
-                            console.log(`[${completed}/${part_files.length}] 成功合并 part ${fileNum}`);
+                            console.log(completed, "/", part_files.length, `Merge completed, part:${fileNum}`);
                         } catch (e) {
-                            console.error(`合并 part ${fileNum} 失败:`, e);
+                            console.error(`Merge part ${fileNum} error:`, e);
                             throw e; // 抛出错误以终止整个合并流程
                         }
                     })
@@ -469,7 +471,7 @@ class download_task {
                 //清除内存占用？？？
                 part_zip = null;
 
-                if (!save_result) throw new Error('最终CBZ文件保存失败');
+                if (!save_result) throw new Error(`File save failed:${save_result.message}`);
 
                 // 后续清理和状态更新逻辑保持不变...
                 //删除临时目录和文件
@@ -500,7 +502,7 @@ class download_task {
                 //将json文件写入
                 fs.writeFileSync(json_path, JSON.stringify(config_json, null, 2));
 
-                console.log(`download ${this.name} finish`, `success:${this.page_complete_count},fail:${this.page_fail_count}`);
+                console.log(`Download ${this.name} finish`, `success:${this.page_complete_count},fail:${this.page_fail_count}`);
 
                 //console.log(`内存使用: ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`);
 
@@ -513,7 +515,7 @@ class download_task {
                 part_zip.end();
                 part_zip = null;
                 this.set_status(3);
-                this.errors.push(`合并失败: ${e.message}`);
+                this.errors.push(`Merge error: ${e.message}`);
                 //throw e;
             }
         } else if (this.status == 4) {
@@ -602,13 +604,13 @@ class download {
         }
 
         if (curWorkingTask) {
-            return { status: true, msg: "任务正在下载" }
+            return { status: true, msg: "server.task_running" }
         } else if (curTaskWait) {
             curTaskWait.begin();
-            return { status: true, msg: "任务继续下载" }
+            return { status: true, msg: "server.task_begin" }
         } else if (curTask) {
             curTask.begin();
-            return { status: true, msg: "任务开始下载" }
+            return { status: true, msg: "server.task_begin" }
         }
     }
 
@@ -617,13 +619,13 @@ class download {
         let task = this.tasks.find(task => task.id == task_id);
 
         if (task) {
-            return { status: false, msg: "任务已存在" }
+            return { status: false, msg: "server.task_has" }
         } else {
             this.tasks.push(new download_task(task_id, this.helpers, this.library_path, () => {
                 this.nextTask();
             }));
 
-            return { status: true, msg: "任务添加成功" }
+            return { status: true, msg: "server.success" }
         }
     }
 
@@ -636,17 +638,17 @@ class download {
             let curWorkingTask = this.tasks.find(task => task.status == 1);
 
             if (curWorkingTask) {
-                return { status: false, msg: "任务正在下载中" }
+                return { status: false, msg: "server.task_running" }
             } else {
                 task.begin();
                 // console.log("begin download result", result, result.status);
                 // if (result.status == "fulfilled") {
                 //     return result;
                 // }
-                return { status: true, msg: "任务开始下载" }
+                return { status: true, msg: "server.task_begin" }
             }
         } else {
-            return { status: false, msg: "请先添加任务" }
+            return { status: false, msg: "server.no_task" }
         }
     }
 
@@ -656,9 +658,9 @@ class download {
 
         if (task) {
             task.pause();
-            return { status: true, msg: "任务暂停下载" }
+            return { status: true, msg: "server.task_pause" }
         } else {
-            return { status: false, msg: "任务不存在" }
+            return { status: false, msg: "server.no_task" }
         }
     }
 
@@ -670,9 +672,9 @@ class download {
             task.delete();
             this.tasks = this.tasks.filter(task => task.id != task_id);
 
-            return { status: true, msg: "任务删除成功" };
+            return { status: true, msg: "server.success" };
         } else {
-            return { status: false, msg: "任务不存在" }
+            return { status: false, msg: "server.no_task" }
         }
     }
 }

@@ -83,7 +83,7 @@ export default defineComponent({
 
                         this.list = res.data;
                     } else {
-                        this.$g.tipbox.error(res.msg);
+                        this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                     }
                 }).catch((err) => {
                     this.$g.tipbox.error(err.message);
@@ -103,9 +103,9 @@ export default defineComponent({
                 plugin_id: row.id
             }).then((res) => {
                 if (res.status) {
-                    this.$g.tipbox.success(res.msg);
+                    this.$g.tipbox.success(this.$t(res.msg, res.i18n));
                 } else {
-                    this.$g.tipbox.error(res.msg);
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);

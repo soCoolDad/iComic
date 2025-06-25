@@ -239,14 +239,14 @@ export default defineComponent({
 
             //console.log(this.$route.query);
             if (!plugin_id) {
-                this.page_error = '阅读插件不存在';
-                this.$g.tipbox.error('阅读插件不存在');
+                this.page_error = this.$t('server.no_plugin_select');
+                this.$g.tipbox.error(this.$t('server.no_plugin_select'));
                 return;
             }
 
             if (!library_id) {
-                this.page_error = '阅读文件不存在';
-                this.$g.tipbox.error('阅读文件不存在');
+                this.page_error = this.$t('reader.no_file_select');
+                this.$g.tipbox.error(this.$t('reader.no_file_select'));
                 return;
             }
 
@@ -268,8 +268,8 @@ export default defineComponent({
                     this.file = res.data;
                     this.file_page_list = res.data?.config?.page_list || [];
                 } else {
-                    this.page_error = res.msg;
-                    this.$g.tipbox.error(res.msg);
+                    this.page_error = this.$t(res.msg, res.i18n);
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 //...
@@ -287,7 +287,7 @@ export default defineComponent({
                     //
                     this.plugin_content_type = res.data.content_type;
                 } else {
-                    this.$g.tipbox.error(res.msg);
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
@@ -333,7 +333,7 @@ export default defineComponent({
             this.items = [];
 
             current_chapter.region.forEach(region => {
-                image_urls.push(`/api/image/pageImage?pi=${this.$route.query.plugin_id}&li=${this.$route.query.library_id}&page=${this.chapter_index}&img=${region}`);
+                image_urls.push(`/api/parse/block?pi=${this.$route.query.plugin_id}&li=${this.$route.query.library_id}&page=${this.chapter_index}&block=${region}`);
             });
 
             //console.log('image_urls', image_urls);

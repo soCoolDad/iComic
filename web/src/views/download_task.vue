@@ -144,7 +144,7 @@ export default defineComponent({
                 if (res.status) {
                     this.list = res.data;
                 } else {
-                    this.$g.tipbox.error(res.msg);
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
@@ -164,9 +164,9 @@ export default defineComponent({
             }).then((res) => {
                 if (res.status) {
                     row.status = 1;
-                    this.$g.tipbox.success(res.msg);
+                    this.$g.tipbox.success(this.$t(res.msg, res.i18n));
                 } else {
-                    this.$g.tipbox.error(res.msg);
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
@@ -186,9 +186,9 @@ export default defineComponent({
             }).then((res) => {
                 if (res.status) {
                     row.status = 4;
-                    this.$g.tipbox.success(res.msg);
+                    this.$g.tipbox.success(this.$t(res.msg, res.i18n));
                 } else {
-                    this.$g.tipbox.error(res.msg);
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
@@ -214,9 +214,9 @@ export default defineComponent({
                         }).then((res) => {
                             if (res.status) {
                                 row.status = 5;
-                                this.$g.tipbox.success(res.msg);
+                                this.$g.tipbox.success(this.$t(res.msg, res.i18n));
                             } else {
-                                this.$g.tipbox.error(res.msg);
+                                this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                             }
                         }).catch((err) => {
                             this.$g.tipbox.error(err.message);

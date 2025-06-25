@@ -142,12 +142,11 @@ class library {
 
         return {
             status: true,
-            msg: `扫描完成。新增: ${addedCount}, 删除: ${deletedCount}`,
-            stats: {
+            msg: `server.scan_complete`,
+            i18n: {
                 total: scanFiles.length,
                 added: addedCount,
-                deleted: deletedCount,
-                unchanged: scanFiles.length - addedCount
+                deleted: deletedCount
             }
         };
     }
@@ -192,20 +191,20 @@ class library {
 
         if (!library) {
             console.log("未找到library记录");
-            return { status: false, msg: "未找到library记录" };
+            return { status: false, msg: "server.no_file" };
         }
 
         // 根据plugin_id获取对应的插件
         const plugin = helpers.plugin.getPlugin(plugin_id);
         if (!plugin) {
             console.log("未找到插件");
-            return { status: false, msg: "未找到插件" };
+            return { status: false, msg: "server.no_plugin" };
         }
 
         // 判断library.path是否存在
         if (!fs.existsSync(library.path)) {
             console.log("文件不存在");
-            return { status: false, msg: "文件不存在" };
+            return { status: false, msg: "server.no_file" };
         }
 
         // 将数据库状态改为1（解析中）
@@ -253,7 +252,7 @@ class library {
         if (plugin_result_error) {
             return { status: false, msg: `${plugin_result_error}` };
         } else {
-            return { status: true, msg: "开始解析" };
+            return { status: true, msg: "server.parse_begin" };
         }
     }
 
@@ -283,7 +282,11 @@ class library {
 
         return {
             status: true,
-            msg: `开始解析${parseCount}个文件,共${libraries.length}个文件`
+            msg: `server.parse_begin_multi`,
+            i18n: {
+                parse_count: parseCount,
+                file_count: libraries.length
+            }
         }
     }
 }

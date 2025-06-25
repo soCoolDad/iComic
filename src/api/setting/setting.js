@@ -2,6 +2,7 @@ const { iComicCtrl } = require('../../units/iComic.js');
 const { UpdateSystem } = require('../../units/update.js');
 const path = require('path');
 const fs = require('fs');
+const { version } = require('os');
 const currentVersion = require('../../../package.json').version;
 class setting {
     config_path = "";
@@ -38,13 +39,16 @@ class setting {
         } catch (error) {
             return {
                 status: false,
-                msg: `保存失败: ${error.message}`
+                msg: `server.save_failed`,
+                i18n: {
+                    msg: error.message
+                }
             }
         }
 
         return {
             status: true,
-            msg: "保存成功"
+            msg: "server.save_success"
         }
     }
 
@@ -115,7 +119,6 @@ class setting {
         return {
             status: true,
             data: {
-                rootDir,
                 backupSize,
                 tempSize,
                 size: totalSize
@@ -138,9 +141,9 @@ class setting {
                 fs.rmdirSync(temp_path, { recursive: true });
             }
 
-            return { status: true, msg: "清除缓存成功" };
+            return { status: true, msg: "server.success" };
         } catch (error) {
-            return { status: false, msg: "清除缓存失败: " + error.message }
+            return { status: false, msg: "server.error", i18n: { msg: error.message } };
         }
     }
 
@@ -231,8 +234,12 @@ class setting {
 
             return {
                 status: false,
-                msg: '检查更新失败',
-                currentVersion
+                msg: 'server.error',
+                currentVersion,
+                i18n: {
+                    msg: error.message,
+                    version: currentVersion
+                }
             };
         }
     }

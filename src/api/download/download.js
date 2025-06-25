@@ -19,10 +19,10 @@ class download {
 
                 return { status: true, data }
             } else {
-                return { status: false, msg: "该插件不提供搜索" }
+                return { status: false, msg: "server.plugin_cant_support_search" }
             }
         } else {
-            return { status: false, msg: "未找到插件" }
+            return { status: false, msg: "server.no_plugin" }
         }
     }
 
@@ -46,7 +46,7 @@ class download {
                 let task = helpers.db_query.get('SELECT * FROM download_task WHERE plugin_id = ? AND name = ?', [plugin_id, name]);
 
                 if (task) {
-                    return { status: false, data: { id: task.id }, msg: "下载任务已存在" }
+                    return { status: false, data: { id: task.id }, msg: "server.task_has" }
                 }
 
                 //如果任务没有添加就添加到下载任务表
@@ -59,13 +59,13 @@ class download {
 
                     return { status: result.status, data: { id: ret.lastInsertRowid }, msg: result.msg }
                 } else {
-                    return { status: false, msg: "添加下载任务失败" }
+                    return { status: false, msg: "server.error" }
                 }
             } else {
-                return { status: false, msg: "该插件不提供下载" }
+                return { status: false, msg: "server.plugin_cant_support_search" }
             }
         } else {
-            return { status: false, msg: "未找到插件" }
+            return { status: false, msg: "server.no_plugin" }
         }
     }
 }

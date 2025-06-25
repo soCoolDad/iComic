@@ -183,9 +183,15 @@ class PluginManager {
             let plugin = this.plugins.get(pluginId);
             let ret = await plugin.installDependencies();
 
-            return { status: true, msg: "安装依赖成功" };
+            return { status: true, msg: "server.install_success" };
         } catch (error) {
-            return { status: true, msg: "安装依赖失败:  " + error.message }
+            return {
+                status: true,
+                msg: "server.install_error",
+                i18n: {
+                    msg: error.message
+                }
+            }
         }
     }
 
@@ -204,9 +210,22 @@ class PluginManager {
                 }
             }
 
-            return { status: true, msg: `安装插件依赖成功${success_count}个，失败${fail_count}个` };
+            return {
+                status: true,
+                msg: `server.install_success_multi`,
+                i18n: {
+                    install_count: success_count,
+                    error_count: fail_count
+                }
+            };
         } catch (error) {
-            return { status: true, msg: "安装依赖失败:  " + error.message }
+            return {
+                status: true,
+                msg: "server.install_error_multi",
+                i18n: {
+                    msg: error.message
+                }
+            }
         }
     }
 

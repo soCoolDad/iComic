@@ -61,7 +61,7 @@
                 </div>
                 <div class="readToBox" v-else-if="curItem?.status == 2">
                     <div class="tips desc line-tow">{{ curItem?.description }}</div>
-                    <div class="tips title">{{$t('library.select_chapter')}}</div>
+                    <div class="tips title">{{ $t('library.select_chapter') }}</div>
                     <!-- <el-select v-model="select_chapter" placeholder="select chapter">
                         <el-option v-for="(item, index) in chapter_list" :label="item.title" :value="index">
                             {{ item.title }}
@@ -240,11 +240,11 @@ export default defineComponent({
                 plugin_id: this.select_plugin
             }).then((res) => {
                 if (res.status) {
-                    this.$g.tipbox.success(res.msg);
+                    this.$g.tipbox.success(this.$t(res.msg, res.i18n));
                     item.status = 1;
                     this.onParseChange(item);
                 } else {
-                    this.$g.tipbox.error(res.msg);
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
@@ -257,12 +257,12 @@ export default defineComponent({
         onReadToRead() {
             //判断是否选了插件
             if (this.select_plugin === '') {
-                this.$g.tipbox.error('请选择插件');
+                this.$g.tipbox.error(this.$t('server.no_plugin_select'));
                 return;
             }
             //判断curItem是否为空
             if (this.curItem == null) {
-                this.$g.tipbox.error('请选择一个文件阅读');
+                this.$g.tipbox.error(this.$t('server.no_file_select'));
                 return;
             }
             //转到页面
@@ -299,7 +299,7 @@ export default defineComponent({
                         this.chapter_list = res.data?.page_list;
                         this.select_chapter = read_page_progress;
                     } else {
-                        this.$g.tipbox.error(res.msg);
+                        this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                     }
                 }).catch((err) => {
                     this.$g.tipbox.error(err.message);
@@ -347,7 +347,7 @@ export default defineComponent({
                     this.continues = continues;
                     this.new_adds = new_adds;
                 } else {
-                    this.$g.tipbox.error(res.msg);
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
@@ -369,9 +369,9 @@ export default defineComponent({
             this.ajaxWorking = true;
             this.$g.http.send('/api/library/scan', 'post').then((res) => {
                 if (res.status) {
-                    this.$g.tipbox.success(res.msg);
+                    this.$g.tipbox.success(this.$t(res.msg, res.i18n));
                 } else {
-                    this.$g.tipbox.error(res.msg);
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
