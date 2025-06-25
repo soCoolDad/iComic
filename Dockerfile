@@ -16,6 +16,7 @@ WORKDIR /app
 
 # 1. 复制项目目录
 COPY package*.json ./
+COPY .npmrc ./
 COPY src src
 COPY web web
 
@@ -27,18 +28,16 @@ COPY configs/plugin/ictz_file_parse configs/plugin/ictz_file_parse
 COPY configs/plugin/lang-en configs/plugin/lang-en  
 COPY configs/plugin/lang-zh-cn configs/plugin/lang-zh-cn
 
-# 3. 创建pm2日志目录
-RUN mkdir -p /var/log/pm2
-# 4. 安装依赖（推荐使用npm或yarn）
-RUN npm install -g cnpm && \
+# 3. 安装依赖（推荐使用npm或yarn）
+RUN mkdir -p /var/log/pm2 && \
     npm install -g pm2 && \
-    cnpm install && \
+    npm install && \
     cd web && \
-    cnpm install && \
-    cnpm run build && \
+    npm install && \
+    npm run build && \
     cd .. 
 
-# 5. 暴露配置目录和端口
+# 4. 暴露配置目录和端口
 VOLUME /configs
 EXPOSE 3000
 ENV NODE_ENV=production \
@@ -46,7 +45,6 @@ ENV NODE_ENV=production \
     CONFIG_DIR="/configs" \
     SERVER_PORT=3000 \
     UPDATE_REPO="soCoolDad/iComic" \
-    GITHUB_TOKEN=""
-# 6. 启动命令
-#CMD ["cnpm", "run", "start"]
+    GITHUB_PAT=""
+# 5. 启动命令
 CMD ["pm2-runtime", "start", "src/index.js"]

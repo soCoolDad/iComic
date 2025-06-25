@@ -89,7 +89,7 @@ class ChineseLanguagePlugin extends LanguagePlugin {
                 clear_cache: "清理缓存",
                 find_new_version: "发现新版本:[{version}]",
                 current_version_is_higher: "当前版本:[{version}]已是最新",
-                current_version_is_new: "[{version}]当前已是最新版本"
+                current_version_is_new: "版本[{version}]已是最新版本"
             },
             update: {
                 title: "更新",
@@ -99,7 +99,11 @@ class ChineseLanguagePlugin extends LanguagePlugin {
                 warning_tip: "如果您的数据没有持久化保存，更新后将会丢失(插件，库，数据)",
                 warning_tip2: "更新过程中可能会关闭服务，具体进度请在Docker里查看对应的容器日志",
                 releaseNotes: "更新日志",
-                update: "更新"
+                update: "更新",
+                updating: "更新中",
+                cancel:"取消",
+                data_loss_warning: "数据丢失警告",
+                data_loss_warning2: "确定更新吗?如果数据没有备份或持久化，更新后将会丢失(插件，库，数据)",
             },
             server: {
                 success: "处理成功",

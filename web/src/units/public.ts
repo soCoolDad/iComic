@@ -9,13 +9,13 @@ export class Http {
         this.baseURL = baseURL
     }
 
-    async send(url: string, method: string, data: object = {}) {
+    async send(url: string, method: string, data: object = {}, timeout = 30000) {
         try {
             const config: any = {
                 url: this.baseURL + url,
                 method,
                 //headers,
-                timeout: 30000
+                timeout
             }
             if (method.toLowerCase() === "get") {
                 config.params = data

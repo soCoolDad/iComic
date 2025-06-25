@@ -13,7 +13,7 @@
                 <div class="sub_title">{{ $t('setting.GitHub_PAT') }}</div>
                 <div class="desc">{{ $t('setting.GitHub_PAT_Info') }}</div>
                 <div class="desc">
-                    <el-input v-model="github_token" placeholder="Github Personal Access token"></el-input>
+                    <el-input v-model="GITHUB_PAT" placeholder="Github Personal Access token"></el-input>
                 </div>
                 <div class="buttons">
                     <el-button round type="primary" :loading="ajaxWorking" @click="saveSystem('GitHub PAT')">{{
@@ -41,7 +41,7 @@
                     <span>&nbsp;</span>
                     <el-tag type="danger" v-if="has_update">{{ $t('setting.has_new_version',
                         { version: has_update_new_version })
-                    }}</el-tag>
+                        }}</el-tag>
                 </div>
                 <div class="buttons">
                     <el-button round type="primary" :loading="ajaxWorking" @click="checkUpdate">{{
@@ -128,7 +128,7 @@ export default defineComponent({
             langs: [] as { value: string, label: string }[],
             lang: "",
             clearCacheWorking: false,
-            github_token: ""
+            GITHUB_PAT: ""
         }
     },
     mounted() {
@@ -240,11 +240,11 @@ export default defineComponent({
                     this.has_update_date = res.data.publishedAt;
 
                     if (this.has_update) {
-                        this.$g.tipbox.success(this.$t('find_new_version', { version: this.has_update_new_version }));
+                        this.$g.tipbox.success(this.$t('setting.find_new_version', { version: this.has_update_new_version }));
                     } else if (res.data?.isCurrentHigher) {
-                        this.$g.tipbox.success(this.$t('current_version_is_higher', { version: this.version }));
+                        this.$g.tipbox.success(this.$t('setting.current_version_is_higher', { version: this.version }));
                     } else {
-                        this.$g.tipbox.success(this.$t('current_version_is_new', { version: this.version }));
+                        this.$g.tipbox.success(this.$t('setting.current_version_is_new', { version: this.version }));
                     }
                 } else {
                     this.version = res.currentVersion;
@@ -257,15 +257,17 @@ export default defineComponent({
             });
         },
         onUpdateSystem() {
-            this.$g.msgbox.confirm(`确定更新吗?如果数据没有备份或持久化，更新后将会丢失`, '数据警告', {
+            this.$g.msgbox.confirm(this.$t('update.data_loss_warning2'), this.$t('update.data_loss_warning'), {
+                confirmButtonText: this.$t('update.update'),
+                cancelButtonText: this.$t('update.cancel'),
                 beforeClose: (action, instance, done) => {
                     if (action === 'confirm') {
                         instance.confirmButtonLoading = true
-                        instance.confirmButtonText = 'Update...'
+                        instance.confirmButtonText = this.$t('update.updating');
 
                         this.ajaxWorking = true;
 
-                        this.$g.http.send('/api/setting/update', 'post', {}).then((res) => {
+                        this.$g.http.send('/api/setting/update', 'post', {}, 1000 * 60 * 10).then((res) => {
                             if (res.status) {
                                 this.$g.tipbox.success(this.$t(res.msg, res.i18n));
                             } else {
@@ -277,7 +279,6 @@ export default defineComponent({
                             done()
                             setTimeout(() => {
                                 instance.confirmButtonLoading = false;
-
                                 // window.location.reload();
                                 // 刷新页面
                                 window.location.reload();
