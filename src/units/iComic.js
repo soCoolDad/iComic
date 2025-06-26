@@ -2,9 +2,6 @@ const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const cheerio = require('cheerio');
-const { buffer } = require('stream/consumers');
-const { time } = require('console');
-const { send } = require('process');
 
 class iComic_http {
     timeout = 30000;
