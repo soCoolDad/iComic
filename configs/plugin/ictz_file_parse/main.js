@@ -195,13 +195,14 @@ class Ictz_File_Parse extends FileParserPlugin {
                         // /目录名/*.*
                         const dir = parts;
                         if (!dirMap[dir]) {
-                            dirMap[dir] = { title: dir, region: [] };
+                            dirMap[dir] = { path: entry.name, title: dir, region: [] };
                         }
 
                         dirMap[dir].region.push(txtFile.index);
                     } else {
                         // /*.* 没有目录结构
                         page_list.push({
+                            path: entry.name,
                             title: path.basename(entry.name),
                             region: [txtFile.index]
                         });
@@ -213,11 +214,16 @@ class Ictz_File_Parse extends FileParserPlugin {
                 page_list.push(dirMap[key]);
             }
 
-            // 按title排序
-            page_list.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
+            // 按path排序
+            page_list.sort((a, b) => a.path.localeCompare(b.path, undefined, { numeric: true }));
 
             newConfig.page_count = page_list.length;
-            newConfig.page_list = page_list;
+            newConfig.page_list = page_list.map((p, index) => {
+                return {
+                    title: p.title,
+                    region: p.region
+                };
+            });
 
             await zip && zip.close();
             zip = undefined;
