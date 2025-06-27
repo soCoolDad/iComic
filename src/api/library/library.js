@@ -1,5 +1,4 @@
 const fs = require('fs');
-const path = require('path');
 class library {
     async getAllLibrary(req, res, helpers) {
         //return helpers.db_query.get('SELECT * FROM library')

@@ -52,7 +52,6 @@
 </template>
 
 <script lang="ts">
-import { load } from 'cheerio';
 import { defineComponent } from 'vue';
 export default defineComponent({
   name: 'PageHeader',

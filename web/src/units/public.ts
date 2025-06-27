@@ -1,6 +1,5 @@
 import axios, { AxiosResponse } from "axios"
 import type { App } from 'vue'
-import { useAuthStore } from "../store";
 import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 
 export class Http {

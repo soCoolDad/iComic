@@ -26,7 +26,7 @@ class BasePlugin {
       return;
     }
 
-    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const npmCmd = process.platform === 'win32' ? 'cnpm.cmd' : 'cnpm';
 
     const result = spawnSync(npmCmd, ['install'], {
       cwd: this.path,

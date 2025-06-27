@@ -5,7 +5,6 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import 'element-plus/dist/index.css'
 import 'element-plus/theme-chalk/display.css'
 import router from './router'
-import pinia from './store'
 import { createI18n } from 'vue-i18n';
 
 import g from './units/public'
@@ -24,7 +23,6 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 
 app.use(ElementPlus)
 app.use(router)
-app.use(pinia)
 app.use(g)
 app.use(i18n as any);
 app.mount('#app')
