@@ -43,14 +43,22 @@ class library {
         // 1. 获取当前数据库中的所有文件记录
         const existingRecords = helpers.db_query.all('SELECT path, config_path FROM library');
         const existingPaths = new Set(existingRecords.map(record => record.path));
-        const existingConfigPaths = new Set(existingRecords.map(record => record.config_path));
-
+        
         // 2. 扫描文件系统获取最新文件列表
         let plugins = helpers.plugin.getPluginsByType('file-parser');
         let scanFiles = [];
         for (let plugin of plugins) {
             try {
-                scanFiles = scanFiles.concat(await plugin.scan(this.libraryDir));
+                let search_result = await plugin.scan(this.libraryDir);
+
+                let search_files = search_result.map(file => {
+                    file.config.parse_plugin = plugin.id;
+                    file.config.search_plugin = file.config?.search_plugin ? file.config?.search_plugin : "";
+
+                    return file;
+                });
+
+                scanFiles = scanFiles.concat(search_files);
             } catch (error) {
                 console.error(`插件扫描失败: ${plugin.id}`, error.message);
             }
@@ -80,8 +88,8 @@ class library {
                 // 新增记录
                 if (isNew) {
                     helpers.db_query.run(
-                        `INSERT INTO library (name, page_count, author, description, path, config_path, plugin_id, status)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+                        `INSERT INTO library (name, page_count, author, description, path, config_path, search_plugin, parse_plugin, status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?,?, 0)`,
                         [
                             config?.name || path.basename(file.path),
                             config?.page_count || 0,
@@ -89,7 +97,8 @@ class library {
                             config?.description || '',
                             file.path,
                             file.config_path,
-                            file.plugin_id
+                            file.config.search_plugin,
+                            file.config.parse_plugin
                         ]
                     );
                     addedCount++;

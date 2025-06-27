@@ -79,7 +79,8 @@ class init {
                 description TEXT,
                 path TEXT,
                 config_path TEXT,
-                plugin_id TEXT NOT NULL,
+                parse_plugin TEXT NOT NULL,
+                search_plugin TEXT,
                 update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 status INTEGER DEFAULT 0
             );
@@ -90,7 +91,7 @@ class init {
             );
             CREATE TABLE IF NOT EXISTS download_task (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                plugin_id TEXT NOT NULL,
+                search_plugin TEXT NOT NULL,
                 name TEXT NOT NULL,
                 search_result TEXT NOT NULL,
                 status INTEGER DEFAULT 0,

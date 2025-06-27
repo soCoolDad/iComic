@@ -28,7 +28,7 @@
             <div class="scroller" ref="scroller">
                 <div class="scroller_content">
                     <div class="image_box" v-for="item in items" v-if="plugin_content_type == 'image'">
-                        <el-image class="image" loading="lazy" :src="item" lazy>
+                        <el-image class="image" :src="item" lazy loading="lazy">
                             <template #placeholder>
                                 <div class="image-slot">
                                     <div>iComic</div>
@@ -309,16 +309,6 @@ export default defineComponent({
                 this.initItems();
             });
         },
-        getPageRange(pageIndex) {
-            //
-            let page_list = this.file_page_list[pageIndex];
-
-            if (!page_list) {
-                //
-            }
-
-            //this.file_config
-        },
         initItems(btn_scrollTop = true) {
             //
             let current_chapter = this.current_chapter;
@@ -414,6 +404,8 @@ export default defineComponent({
         top: 0;
         right: 0;
         bottom: 0;
+        height: auto;
+        //overflow: auto;
 
         .header {
             position: fixed;
@@ -482,21 +474,28 @@ export default defineComponent({
                     }
 
                     .image {
-                        //display: block; // 确保图片本身是块级元素
+                        display: block; // 确保图片本身是块级元素
                         width: 100%;
                         height: auto;
                     }
 
                     :deep(.el-image__wrapper) {
-                        position: relative;
                         display: block;
+                        position: relative;
                         margin: 0; // 清除默认外边距
                         padding: 0; // 清除默认内边距
                         line-height: 10px;
                     }
 
-                    :deep(.el-image__inner.is-loading) {
-                        display: inline-block;
+                    :deep(.is-loading) {
+                        //display: block;
+                        position: absolute;
+                        left: 0;
+                        right: 0;
+                        top: 0;
+                        bottom: 0;
+                        margin: 0;
+                        padding: 0;
                     }
 
                     .image-slot {

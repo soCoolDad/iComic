@@ -4,7 +4,7 @@ class library {
         //return helpers.db_query.get('SELECT * FROM library')
         //return helpers.library.getAllLibrary();
 
-        const libraries = helpers.db_query.all('SELECT id, name, page_count, author, description, plugin_id, status FROM library');
+        const libraries = helpers.db_query.all('SELECT id, name, page_count, author, description, search_plugin, parse_plugin, status FROM library');
 
         libraries.forEach(library => {
             //通过library_tag和tag表联查tag.name
@@ -49,7 +49,7 @@ class library {
         let library_id = req.body.library_id || req.query.library_id;
         let need_config = req.body.need_config || req.query.need_config;
 
-        let ret = await helpers.db_query.get('SELECT id, name, page_count, author, description, status, plugin_id, config_path FROM library WHERE id = ?', [library_id]);
+        let ret = await helpers.db_query.get('SELECT id, name, page_count, author, description, status, search_plugin, parse_plugin, config_path FROM library WHERE id = ?', [library_id]);
 
         if (!ret) {
             return { status: false, msg: "server.no_file" }

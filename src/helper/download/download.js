@@ -53,7 +53,7 @@ class BlockDownloader {
 
     async downloadWithRetry(url, j, retry_count = 5) {
         let retries = Number(this.task.plugin.config?.retry_count) || 5;
-        
+
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
                 if (this.task.status !== 1) {
@@ -205,7 +205,7 @@ class PageDownloader {
 
             const errorMsg = `Page:${pageIndex} Error:${error.message}`;
             console.error(errorMsg, error);
-            
+
             // 更新任务状态和计数器
             this.task.set_status(4);
             this.task.add_page_fail_count();
@@ -223,12 +223,12 @@ class download_task {
     errors = [];
     constructor(task_id, helpers, library_path, nextTask) {
         let task = helpers.db_query.get('SELECT * FROM download_task WHERE id=?', [task_id]);
-        let plugin = helpers.plugin.getPlugin(task.plugin_id);
+        let plugin = helpers.plugin.getPlugin(task.search_plugin);
         //会存在plugin在初始化的时候还没加载完该任务就开始初始化
         //console.log("get download_task", task, task_id, plugin);
 
         this.id = task.id;
-        this.plugin_id = task.plugin_id;
+        this.plugin_id = task.search_plugin;
         this.name = this.safePathName(task.name);
         this.status = task.status == 1 ? 4 : task.status;
 
@@ -544,6 +544,7 @@ class download_task {
                     "page_count": page_count,
                     "tags": book_detail.tags,
                     "description": book_detail.description,
+                    "search_plugin": this.plugin_id,
                     "page_list": []
                 }
 

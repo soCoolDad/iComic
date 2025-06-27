@@ -191,12 +191,8 @@ class Cbz_File_Parse extends FileParserPlugin {
                 // 强制生成cover_image
                 if (/\/cover\..*$/i.test(entry.name)) {
                     // 处理 cover 文件
-                    coverEntry = null;
                     newConfig.cover_image = "";
-                    //console.log("find cover", entry.name);
-                }
 
-                if (!coverEntry && !newConfig.cover_image) {
                     // 处理cover_image
                     coverEntry = entry;
 
@@ -209,7 +205,6 @@ class Cbz_File_Parse extends FileParserPlugin {
                 }
 
                 //if (i < 10) console.log(entry);
-
                 if (parts.length > 1) {
                     // /目录名/*.*
                     const dir = parts;
@@ -438,18 +433,21 @@ class Cbz_File_Parse extends FileParserPlugin {
                         try {
                             config = JSON.parse(iComic.readFileSync(configPath, 'utf-8'));
                         } catch (e) {
-                            config = {
-                                name: file,
-                                author: '',
-                                description: 'scan by iComic',
-                                tags: [],
-                                page_count: 0
-                            };
+                            //...不处理
                         }
                     }
 
+                    if (config === null) {
+                        config = {
+                            name: file,
+                            author: '',
+                            description: 'scan by cbz file parser',
+                            tags: [],
+                            page_count: 0
+                        };
+                    }
+
                     scan_files.push({
-                        plugin_id: this.id,
                         name: file,
                         path: filePath,
                         config_path: configPath,

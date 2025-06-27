@@ -431,19 +431,22 @@ class Ictz_File_Parse extends FileParserPlugin {
                     if (iComic.existsSync(configPath)) {
                         try {
                             config = JSON.parse(iComic.readFileSync(configPath, 'utf-8'));
-                        } catch (e) {
-                            config = {
-                                name: file,
-                                author: '',
-                                description: 'scan by iComic',
-                                tags: [],
-                                page_count: 0
-                            };
+                        }catch (error) {
+                            //...不处理
                         }
+                    } 
+
+                    if(config === null) {
+                        config = {
+                            name: file,
+                            author: '',
+                            description: 'scan by ictz file parser',
+                            tags: [],
+                            page_count: 0
+                        };
                     }
 
                     scan_files.push({
-                        plugin_id: this.id,
                         name: file,
                         path: filePath,
                         config_path: configPath,

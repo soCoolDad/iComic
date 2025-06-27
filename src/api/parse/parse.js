@@ -45,6 +45,8 @@ class block_reader {
         const page = req.query.page;
         const block = req.query.block;
 
+        //await new Promise(resolve => setTimeout(resolve, 1000 * 60));
+
         if (library_id && page && block && plugin_id) {
             let plugin = helpers.plugin.getPlugin(plugin_id);
             let library = helpers.db_query.get('SELECT path,config_path FROM library WHERE id = ?', [library_id]);

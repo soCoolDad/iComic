@@ -99,7 +99,8 @@ interface ComicItem {
     description: string;
     read_page_progress: number;
     read_update_time: number;
-    plugin_id: string;
+    parse_plugin: string;
+    search_plugin: string;
 }
 
 interface plugin_reader_item {
@@ -283,7 +284,7 @@ export default defineComponent({
 
             this.select_chapter = 0;
 
-            this.select_plugin = item.plugin_id;
+            this.select_plugin = item.parse_plugin;
             if (item.status == 2) {
                 //请求config
                 if (this.ajaxWorking) {
