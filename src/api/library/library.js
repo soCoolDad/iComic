@@ -22,8 +22,7 @@ class library {
         }
     }
 
-    async getLibraryConfig(req, res, helpers) {
-        let library_id = req.body.library_id || req.query.library_id;
+    async getLibraryConfigByID(library_id, helpers) {
         let ret = await helpers.db_query.get('SELECT config_path FROM library WHERE id = ?', [library_id]);
         let config_path = ret?.config_path;
 
@@ -41,6 +40,92 @@ class library {
             return {
                 status: false,
                 msg: "server.file_no_parse"
+            }
+        }
+    }
+
+    async getLibraryConfig(req, res, helpers) {
+        let library_id = req.body.library_id || req.query.library_id;
+        return await this.getLibraryConfigByID(library_id, helpers);
+    }
+
+    async getLibraryUpdate(req, res, helpers) {
+        try {
+            let library_id = req.body.library_id || req.query.library_id;
+            let config_result = await this.getLibraryConfigByID(library_id, helpers);
+            let plugin = null;
+
+            if (config_result.status) {
+                let config = config_result.data;
+
+                //console.log(config);
+
+                if (config.search_plugin && config.search_result) {
+                    plugin = helpers.plugin.getPlugin(config.search_plugin);
+
+                    if (plugin) {
+                        if (plugin.type === "search") {
+                            config.search_result;
+                            let retry_count = Number(plugin.config?.retry_count) || 5;
+                            let book_detail = null;
+                            //循环获取详情防止报错
+                            for (let i = 0; i < retry_count; i++) {
+                                try {
+                                    book_detail = await plugin.getDetail(config.search_result);
+
+                                    if (book_detail?.status === false) {
+                                        console.error(`Retry:`, i + 1, `Plugin[${plugin.name}][getDetail]Error:${book_detail.msg}`);
+
+                                        if (i == retry_count - 1) {
+                                            throw new Error(book_detail.msg);
+                                        }
+                                    } else {
+                                        break;
+                                    }
+                                } catch (error) {
+                                    throw error;
+                                }
+                            }
+
+                            let pages = book_detail.pages;
+                            let page_count = pages.length;
+
+                            return {
+                                status: true,
+                                msg: "server.success",
+                                data: {
+                                    update_count: page_count - config.page_count,
+                                    updata_data: config.search_result
+                                }
+                            }
+                        }
+
+                        return {
+                            status: false,
+                            msg: "server.plugin_cant_support_search"
+                        }
+                    }
+
+                    return {
+                        status: false,
+                        msg: "server.no_plugin"
+                    }
+                }
+
+                return {
+                    status: false,
+                    msg: "server.no_config"
+                }
+            }
+
+            return config_result;
+        } catch (error) {
+            return {
+                status: false,
+                msg: "server.error",
+                i18n: {
+                    msg: error.message
+                }
             }
         }
     }

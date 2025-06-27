@@ -117,9 +117,7 @@ class PageDownloader {
             let result = results[i];
             let pageIndex = i;
 
-            if (result.status) {
-                console.log(`Page ${pageIndex} 下载完成`);
-            } else {
+            if (result.status == false) {
                 console.error(`Page ${pageIndex} 下载失败:`, result.msg);
                 this.errors.push(`Page[${pageIndex}]:${result.msg}`);
             }
@@ -231,6 +229,7 @@ class download_task {
         this.plugin_id = task.search_plugin;
         this.name = this.safePathName(task.name);
         this.status = task.status == 1 ? 4 : task.status;
+        this.type = task.type;
 
         this.cur_page_index = (task.page_complete_count + task.page_fail_count) || 0;
         this.page_count = task.page_count;
@@ -421,12 +420,33 @@ class download_task {
             //处理封面图
             //book_detail.cover_image = "https://xxxxx.png";
             console.log("begin download cover:", book_detail.cover_image);
-            let result = await iComic.get(book_detail.cover_image).then((res) => {
-                // console.log("download cover success:", res);
-                return { status: true, data: res.body };
-            }).catch((err) => {
-                return { status: false, msg: err.message };
-            });
+
+
+            let cover_retry_count = Number(this.plugin.config?.retry_count) || 5;
+            //循环获取缩略图防止报错
+            for (let i = 0; i < cover_retry_count; i++) {
+                try {
+                    let result = await iComic.get(book_detail.cover_image).then((res) => {
+                        // console.log("download cover success:", res);
+                        return { status: true, data: res.body };
+                    }).catch((err) => {
+                        return { status: false, msg: err.message };
+                    });
+                    if (result.status) {
+                        break;
+                    } else {
+                        console.error(`Retry:`, i + 1, `Plugin[${this.plugin.name}][getCover]Error:${result.msg}`);
+
+                        if (i == retry_count - 1) {
+                            throw new Error(result.msg);
+                        }
+                    }
+                } catch (error) {
+                    this.set_status(4);
+                    this.errors.push(`Plugin[${this.plugin.name}][getCover]Error:${error.message}`);
+                    return { status: false, msg: `Plugin[${this.plugin.name}][getCover]失败:${error.message}` }
+                }
+            }
 
             let cbz_cover_file = new yazl.ZipFile();
 
@@ -459,8 +479,6 @@ class download_task {
         console.log("begin download", this.name);
         const pageDownloader = new PageDownloader(this, this.plugin, pages, tmp_dir, iComic);
         const page_result = await pageDownloader.downloadPages(this.cur_page_index);
-
-        console.log("page_result", page_result);
 
         // 收集错误
         this.errors = this.errors.concat(page_result.errors);
@@ -545,6 +563,7 @@ class download_task {
                     "tags": book_detail.tags,
                     "description": book_detail.description,
                     "search_plugin": this.plugin_id,
+                    "search_result": this.search_result,
                     "page_list": []
                 }
 
@@ -605,6 +624,7 @@ class download {
             return {
                 id: task.id,
                 name: task.name,
+                type: task.type,
                 status: task.status,
                 page_count: task.page_count,
                 page_complete_count: task.page_complete_count,

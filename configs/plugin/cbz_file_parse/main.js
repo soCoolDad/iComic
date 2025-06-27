@@ -174,7 +174,6 @@ class Cbz_File_Parse extends FileParserPlugin {
                     !/\.(jpe?g|png|gif|bmp|webp)$/i.test(entry.name) ||
                     /(^|[\\\/])\./.test(entry.name) ||
                     /(^|[\\\/])_/.test(entry.name) ||
-                    ///(^|\/|\\)cover\.(png|jpe?g|gif|bmp|webp)$/i.test(entry.name) ||  // 覆盖所有封面文件
                     systemFiles.some(f => {
                         const normalizedEntry = entry.name.replace(/\\/g, '/');
                         return normalizedEntry === f ||
@@ -191,17 +190,16 @@ class Cbz_File_Parse extends FileParserPlugin {
                 // 强制生成cover_image
                 if (/\/cover\..*$/i.test(entry.name)) {
                     // 处理 cover 文件
+                    console.log('cover', entry.name);
                     newConfig.cover_image = "";
 
                     // 处理cover_image
                     coverEntry = entry;
 
-                    // base64编码
-                    // console.log('coverBuffer', coverEntry)
-                    const coverBuffer = await zip.entryData(coverEntry.name);
-                    newConfig.cover_image = `data:image/${path.extname(coverEntry.name).slice(1)};base64,${coverBuffer.toString('base64')}`;
-
                     continue;
+                } else if (coverEntry === null) {
+                    // 处理cover_image
+                    coverEntry = entry;
                 }
 
                 //if (i < 10) console.log(entry);
@@ -221,6 +219,15 @@ class Cbz_File_Parse extends FileParserPlugin {
                     });
                 }
             }
+
+            //处理cover
+            if (coverEntry) {
+                // base64编码
+                // console.log('coverBuffer', coverEntry)
+                const coverBuffer = await zip.entryData(coverEntry.name);
+                newConfig.cover_image = `data:image/${path.extname(coverEntry.name).slice(1)};base64,${coverBuffer.toString('base64')}`;
+            }
+
             // 合并目录结构的page对象
             for (const key in dirMap) {
                 page_list.push(dirMap[key]);

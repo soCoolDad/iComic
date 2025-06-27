@@ -91,7 +91,7 @@ class ChineseLanguagePlugin extends LanguagePlugin {
                 current_version_is_higher: "当前版本:[{version}]已是最新",
                 current_version_is_new: "版本[{version}]已是最新版本",
                 device_title: "请求设备",
-                device_desc:"iComic 在发起请求时所携带的请求头",
+                device_desc: "iComic 在发起请求时所携带的请求头",
             },
             update: {
                 title: "更新",
@@ -103,9 +103,12 @@ class ChineseLanguagePlugin extends LanguagePlugin {
                 releaseNotes: "更新日志",
                 update: "更新",
                 updating: "更新中",
-                cancel:"取消",
+                cancel: "取消",
                 data_loss_warning: "数据丢失警告",
                 data_loss_warning2: "确定更新吗?如果数据没有备份或持久化，更新后将会丢失(插件，库，数据)",
+
+                no_update: "没有更新项",
+                has_update: "有{count}个更新",
             },
             server: {
                 success: "处理成功",
@@ -125,7 +128,7 @@ class ChineseLanguagePlugin extends LanguagePlugin {
                 no_library: "库不存在",
 
                 plugin_cant_support_search: "该插件不提供搜索",
-                
+
 
                 file_no_parse: "文件未解析",
 

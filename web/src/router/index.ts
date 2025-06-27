@@ -12,6 +12,11 @@ const routes = [
     component: () => import('../views/download_task.vue')
   },
   {
+    path: '/update',
+    name: 'update',
+    component: () => import('../views/update.vue')
+  },
+  {
     path: "/",
     name: "home",
     component: () => import("../views/library.vue")

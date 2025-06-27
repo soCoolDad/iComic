@@ -91,6 +91,7 @@ class init {
             );
             CREATE TABLE IF NOT EXISTS download_task (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type INTEGER DEFAULT 0,
                 search_plugin TEXT NOT NULL,
                 name TEXT NOT NULL,
                 search_result TEXT NOT NULL,

@@ -106,6 +106,9 @@ class EnglishLanguagePlugin extends LanguagePlugin {
                 cancel:"Cancel",
                 data_loss_warning: "Data loss warning",
                 data_loss_warning2: "Confirm update? If data is not backed up or persisted, it will be lost after update (plugins, library, data)",
+
+                no_update: "No updates",
+                has_update: "Has {count} updates",
             },
             server: {
                 success: "Processing successful",
