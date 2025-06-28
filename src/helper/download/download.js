@@ -65,46 +65,61 @@ class BlockDownloader {
         let retries = Number(this.task.plugin.config?.retry_count) || 5;
 
         for (let attempt = 1; attempt <= retries; attempt++) {
-            let timeouter;
-            try {
-                if (this.task.status !== 1) {
-                    return { status: false, msg: '任务状态改变' };
-                }
+            if (this.task.status !== 1) {
+                return { status: false, msg: '任务状态改变' };
+            }
+
+            let await_result = await new Promise(async (resolve, reject) => {
+                let timeouter;
+                let timeouted = false;
 
                 console.log(`downloader`, this.page_detail_title, j, `retry`, attempt, url);
 
-                //5分钟的超时
-                const abortController = new AbortController();
+                //3分钟的超时
                 timeouter = setTimeout(() => {
-                    abortController.abort();
-                    throw new Error(`downloader timeout ${this.page_detail_title},${j},${url}`);
-                }, 1000 * 60 * 5);
+                    timeouted = true;
+                    reject({
+                        status: false,
+                        msg: `downloader timeout ${this.page_detail_title},${j},${url}`
+                    });
+                }, 1000 * 60 * 3);
 
-                console.log(`downloader set timeout`, 1000 * 60 * 5);
+                console.log(`downloader set timeout`, 1000 * 60 * 3);
 
                 const result = await this.task.plugin.getPageDetailBlock(url);
+
+                console.log(`downloader clear timeout`, 1000 * 60 * 3,this.page_detail_title, j, attempt, url);
+                clearTimeout(timeouter);
+
+                if (timeouted) return;
 
                 console.log(`downloader`, this.page_detail_title, j, `get`, attempt, url);
 
                 if (result.status === false) {
-                    throw new Error(result.msg);
+                    reject({
+                        status: false,
+                        msg: `downloader ${this.page_detail_title},${j},${url} error:${result.msg}`
+                    });
+                    return;
                 }
 
                 this.task.add_current_page_complete_count();
-                return {
+
+                resolve({
                     status: true,
                     data: await this.task.plugin.parseFile(result)
-                };
-            } catch (err) {
+                });
+            });
+
+            if (await_result.status) {
+                return await_result;
+            } else {
                 console.log(`downloader`, this.page_detail_title, '块', j, '出错', url, err.message, err);
                 if (attempt >= retries) {
                     this.task.add_current_page_fail_count();
                     return { status: false, msg: err.message };
                 }
                 await new Promise(resolve => setTimeout(resolve, 1000));
-            } finally {
-                console.log(`downloader clear timeout`, 1000 * 60 * 5);
-                clearTimeout(timeouter);
             }
         }
     }
@@ -205,6 +220,11 @@ class PageDownloader {
 
             page_zip.end();
 
+            if(this.task.status !== 1) {
+                page_zip = null;
+                return { status: false, msg: '任务状态改变' };
+            }
+
             // 存储文件
             let save_result = await this.task.saveFileByZip(page_zip, page_zip_path);
 
@@ -274,6 +294,13 @@ class download_task {
     async set_page_count(page_count) {
         //同步设置数据库
         this.page_count = page_count;
+        this.page_complete_count = 0;
+        this.page_fail_count = 0;
+        
+        this.current_page_count = 0;
+        this.current_page_complete_count = 0;
+        this.current_page_fail_count = 0;
+
         await this.helpers.db_query.run('UPDATE download_task SET current_page_count = 0,current_page_complete_count = 0,current_page_fail_count = 0, page_complete_count = 0,page_fail_count = 0,page_count = ? WHERE id = ?', [page_count, this.id]);
     }
 
@@ -398,6 +425,8 @@ class download_task {
         let iComic = new iComicCtrl();
         let book_detail
 
+        this.set_status(1);
+
         let retry_count = Number(this.plugin.config?.retry_count) || 5;
         //循环获取详情防止报错
         for (let i = 0; i < retry_count; i++) {
@@ -435,8 +464,7 @@ class download_task {
             fs.mkdirSync(tmp_dir, { recursive: true });
         }
 
-        this.set_status(1);
-        this.set_page_count(page_count);
+        await this.set_page_count(page_count);
 
         //判断cover_image是否已经生成
         let cover_image_path = path.join(tmp_dir, "0.part");
@@ -502,7 +530,7 @@ class download_task {
         }
 
         //从上次断点继续下载
-        console.log("begin download", this.name);
+        console.log("begin download", this.name ,"all Pages");
         const pageDownloader = new PageDownloader(this, this.plugin, pages, tmp_dir, iComic);
         const page_result = await pageDownloader.downloadPages(this.cur_page_index);
 

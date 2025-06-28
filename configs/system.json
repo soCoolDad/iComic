@@ -3,7 +3,7 @@
         "ICOMIC/GETER V0.0.3"
     ],
     "ICOMIC_VIRTUAL_DEVICE_INDEX": 0,
-    "LANGUAGE": "lang_zh_cn",
+    "LANGUAGE": "lang_en",
     "UPDATE_REPO": "soCoolDad/iComic",
     "GITHUB_PAT": "",
     "COPT_TO_EVN": [
@@ -12,5 +12,6 @@
         "LANGUAGE",
         "UPDATE_REPO",
         "GITHUB_PAT"
-    ]
+    ],
+    "version": "0.0.23"
 }
