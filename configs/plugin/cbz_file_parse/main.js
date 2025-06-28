@@ -207,13 +207,14 @@ class Cbz_File_Parse extends FileParserPlugin {
                     // /目录名/*.*
                     const dir = parts;
                     if (!dirMap[dir]) {
-                        dirMap[dir] = { title: dir, region: [] };
+                        dirMap[dir] = { title: dir, name: entry.name, region: [] };
                     }
 
                     dirMap[dir].region.push(imageFile.index);
                 } else {
                     // /*.* 没有目录结构
                     page_list.push({
+                        name: entry.name,
                         title: path.basename(entry.name),
                         region: [imageFile.index]
                     });
@@ -234,10 +235,15 @@ class Cbz_File_Parse extends FileParserPlugin {
             }
 
             // 按title排序
-            page_list.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
+            page_list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
             newConfig.page_count = page_list.length;
-            newConfig.page_list = page_list;
+            newConfig.page_list = page_list.map((p) => {
+                return {
+                    title: p.title,
+                    region: p.region
+                };
+            });
 
             await zip && zip.close();
             cbx_success(newConfig);
