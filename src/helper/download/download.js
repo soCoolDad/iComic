@@ -51,10 +51,10 @@ class BlockDownloader {
                 this.page_zip.addBuffer(result.value.data, filename);
             } else if (result.status === 'rejected') {
                 // 被拒绝的 Promise
-                this.errors.push(`downloader ${this.page_detail_title}:block[${j}] error:${result.reason}`);
+                this.errors.push(result.reason.msg);
             } else if (result.status === 'fulfilled' && !result.value.status) {
                 // 成功完成但返回状态为失败的 Promise
-                this.errors.push(`downloader ${this.page_detail_title}:block[${j}] error:${result.value.msg}`);
+                this.errors.push(result.value.msg);
             }
         }
 
@@ -69,59 +69,52 @@ class BlockDownloader {
                 return { status: false, msg: '任务状态改变' };
             }
 
-            let await_result = await new Promise(async (resolve, reject) => {
-                let timeouter;
-                let timeouted = false;
+            try {
+                //console.log(`downloader begin block [`, j, `]`, `[`, attempt, "/", retries, "]", url);
+                const result = await this._downloadBlockWithTimeout(url, j);
 
-                console.log(`downloader`, this.page_detail_title, j, `retry`, attempt, url);
+                if (result.status) {
+                    console.log(`downloader success block [`, j, `]`, `[`, attempt, "/", retries, "]", url);
+                    return result;
+                }
 
-                //3分钟的超时
-                timeouter = setTimeout(() => {
-                    timeouted = true;
-                    reject({
-                        status: false,
-                        msg: `downloader timeout ${this.page_detail_title},${j},${url}`
-                    });
-                }, 1000 * 60 * 3);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (err) {
+                if (attempt >= retries) {
+                    console.log(`downloader error block [`, j, `]`, `[`, attempt, "/", retries, "]", url, err.message);
+                    this.task.add_current_page_fail_count();
+                    this.task.errors.push(`page[${this.i}]block:[${j}] [${attempt}/${retries}] ${url} ${err.message}`);
+                    return { status: false, msg: err.message };
+                }
+            }
+        }
+    }
+    _downloadBlockWithTimeout(url, j) {
+        return new Promise(async (resolve, reject) => {
+            const timer = setTimeout(() => {
+                reject(new Error(`downloader timeout ${this.page_detail_title},${j},${url}`));
+            }, 180000);
 
-                console.log(`downloader set timeout`, 1000 * 60 * 3);
-
+            try {
                 const result = await this.task.plugin.getPageDetailBlock(url);
-
-                console.log(`downloader clear timeout`, 1000 * 60 * 3,this.page_detail_title, j, attempt, url);
-                clearTimeout(timeouter);
-
-                if (timeouted) return;
-
-                console.log(`downloader`, this.page_detail_title, j, `get`, attempt, url);
+                clearTimeout(timer);
 
                 if (result.status === false) {
-                    reject({
-                        status: false,
-                        msg: `downloader ${this.page_detail_title},${j},${url} error:${result.msg}`
-                    });
+                    reject(new Error(result.msg));
                     return;
                 }
 
                 this.task.add_current_page_complete_count();
-
                 resolve({
                     status: true,
                     data: await this.task.plugin.parseFile(result)
                 });
-            });
 
-            if (await_result.status) {
-                return await_result;
-            } else {
-                console.log(`downloader`, this.page_detail_title, '块', j, '出错', url, err.message, err);
-                if (attempt >= retries) {
-                    this.task.add_current_page_fail_count();
-                    return { status: false, msg: err.message };
-                }
-                await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (err) {
+                clearTimeout(timer);
+                reject(err);
             }
-        }
+        });
     }
 }
 
@@ -158,7 +151,7 @@ class PageDownloader {
             let pageIndex = i;
 
             if (result.status == false) {
-                console.error(`Page ${pageIndex} 下载失败:`, result.msg);
+                console.error(`Page[${pageIndex}]:`, result.msg);
                 this.errors.push(`Page[${pageIndex}]:${result.msg}`);
             }
         }
@@ -215,12 +208,12 @@ class PageDownloader {
 
             // 如果有错误，添加到错误列表
             if (errors.length > 0) {
-                this.errors.push(...errors.map(error => `Page[${pageIndex}] ${error}`));
+                console.log(`Download page ${page_detail_title} blocks failed: error count:`, errors.length);
             }
 
             page_zip.end();
 
-            if(this.task.status !== 1) {
+            if (this.task.status !== 1) {
                 page_zip = null;
                 return { status: false, msg: '任务状态改变' };
             }
@@ -296,7 +289,7 @@ class download_task {
         this.page_count = page_count;
         this.page_complete_count = 0;
         this.page_fail_count = 0;
-        
+
         this.current_page_count = 0;
         this.current_page_complete_count = 0;
         this.current_page_fail_count = 0;
@@ -530,7 +523,7 @@ class download_task {
         }
 
         //从上次断点继续下载
-        console.log("begin download", this.name ,"all Pages");
+        console.log("begin download", this.name, "all Pages");
         const pageDownloader = new PageDownloader(this, this.plugin, pages, tmp_dir, iComic);
         const page_result = await pageDownloader.downloadPages(this.cur_page_index);
 

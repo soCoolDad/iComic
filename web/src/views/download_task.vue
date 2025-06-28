@@ -63,7 +63,7 @@
                         </el-row>
                     </template>
                 </el-table-column>
-                <el-table-column :label="$t('download_task.col_action')">
+                <el-table-column width="190" :label="$t('download_task.col_action')">
                     <template #default="scope">
                         <div class="downloadBtnBox">
                             <el-button v-if="scope.row.status == 0 || scope.row.status == 3 || scope.row.status == 4"
