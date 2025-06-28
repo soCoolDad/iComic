@@ -4,7 +4,7 @@ const https = require('https');
 const cheerio = require('cheerio');
 
 class iComic_http {
-    timeout = 30000;
+    timeout = 1000 * 60;
     constructor() {
         this.virtual_device = process.env.ICOMIC_VIRTUAL_DEVICE || ["ICOMIC/GETER V0.0.3"];
         this.virtual_device_index = process.env.ICOMIC_VIRTUAL_DEVICE_INDEX || 0;
@@ -49,7 +49,7 @@ class iComic_http {
     async post(url, headers, data) {
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
-                reject(new Error(`[http] 请求超时: ${url}`));
+                throw new Error(`[http] 请求超时: ${url}`)
             }, this.timeout);
 
             try {
