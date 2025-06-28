@@ -46,6 +46,7 @@ if (helpers.init.check(dbDir) === 0) {
     if (configDir !== path.join(rootDir, "configs")) {
         //将配置文件夹复制到根目录
         //更新插件和文件
+        console.log("init", "update plugins", configDir);
         fs.copySync(path.join(rootDir, "configs"), configDir, { overwrite: true });
     }
 }
