@@ -136,19 +136,20 @@ class PageDownloader {
         this.limit = pLimit(this.concurrency);
     }
 
-    async downloadPages() {
-        //cur_page_index
+    async downloadPages(page_start = 0) {
+        // 只处理从page_start开始的页面
         const pageDownloads = this.pages
-            .map((page, i) => this.limit(() => this.downloadPage(page, i)));
+            .slice(page_start)  // 从page_start开始截取数组
+            .map((page, i) => this.limit(() => this.downloadPage(page, i + page_start)));  // 保持原始索引
 
-        console.log('Begin download', this.pages.length, 'pages, concurrency:', this.concurrency);
+        console.log('Begin download', this.pages.length - page_start, 'pages, concurrency:', this.concurrency);
 
         const results = await Promise.all(pageDownloads);
 
         // 处理结果
         for (let i = 0; i < results.length; i++) {
             let result = results[i];
-            let pageIndex = i;
+            let pageIndex = i + page_start;  // 保持原始索引
 
             if (result.status == false) {
                 console.error(`Page[${pageIndex}]:`, result.msg);
@@ -268,8 +269,10 @@ class download_task {
         this.name = this.safePathName(task.name);
         this.status = task.status == 1 ? 4 : task.status;
         this.type = task.type;
+        this.update_start = Number(task.update_start) || 0;
+        this.update_library_id = task.update_library_id;
 
-        this.cur_page_index = (task.page_complete_count + task.page_fail_count) || 0;
+        this.cur_page_index = (this.type == 1 && this.update_library_id) ? this.update_start : 0;
         this.page_count = task.page_count;
         this.page_complete_count = task.page_complete_count;
         this.page_fail_count = task.page_fail_count;
@@ -301,6 +304,13 @@ class download_task {
         //page_complete_count++
         //同步设置数据库
         this.page_complete_count++;
+        await this.helpers.db_query.run('UPDATE download_task SET page_complete_count = ? WHERE id = ?', [this.page_complete_count, this.id]);
+    }
+
+    async set_page_complete_count(count = 0) {
+        //current_page_complete_count++
+        //同步设置数据库
+        this.page_complete_count = count;
         await this.helpers.db_query.run('UPDATE download_task SET page_complete_count = ? WHERE id = ?', [this.page_complete_count, this.id]);
     }
 
@@ -522,6 +532,11 @@ class download_task {
             cbz_cover_file = null;
         }
 
+        //判断是否是更新任务
+        if (this.type == 1) {
+            this.set_page_complete_count(this.cur_page_index);
+        }
+
         //从上次断点继续下载
         console.log("begin download", this.name, "all Pages");
         const pageDownloader = new PageDownloader(this, this.plugin, pages, tmp_dir, iComic);
@@ -534,7 +549,22 @@ class download_task {
             let save_file_path = path.join(save_dir, this.name + (await this.plugin.saveFileExtension()));
             let part_files = fs.readdirSync(tmp_dir)
                 .filter(file => path.extname(file) == ".part")
-                .sort((a, b) => parseInt(path.basename(a, ".part")) - parseInt(path.basename(b, ".part")));
+                .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+            //判断是否是更新任务
+            if (this.type == 1) {
+                //如果save_file_path存在就添加到part_files第一位
+                if (fs.existsSync(save_file_path)) {
+                    // 强制移动到临时目录并改名为0_1.part
+                    fs.renameSync(save_file_path, path.join(tmp_dir, "0_1.part"));
+                    // 添加到首位
+                    part_files.unshift("0_1.part");
+                }
+                if (this.update_library_id) {
+                    // 并将library记录状态改为0
+                    await this.helpers.db_query.run('UPDATE library SET status = 0 WHERE id = ?', [this.update_library_id]);
+                }
+            }
 
             let part_zip = new yazl.ZipFile();
 
@@ -554,7 +584,7 @@ class download_task {
                 await Promise.all(part_files.map(file =>
                     limit(async () => {
                         const zipPath = path.join(tmp_dir, file);
-                        const fileNum = parseInt(path.basename(file, ".part"));
+                        const fileNum = path.basename(file, ".part");
 
                         let read_zip = null;
 

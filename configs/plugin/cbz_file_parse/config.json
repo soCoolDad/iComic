@@ -1,7 +1,7 @@
 {
     "id": "cbz_file_parse",
     "name": "cbz文件解析",
-    "type": "file-parser",
+    "type": "parser",
     "support_file": [
         ".cbz"
     ],

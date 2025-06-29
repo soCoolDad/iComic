@@ -59,6 +59,11 @@ class ChineseLanguagePlugin extends LanguagePlugin {
                 btn_action_delete: "删除",
                 errbox_title: "下载中出现的错误",
                 errbox_btn_colse: "关闭",
+
+                confirm_delete_title: "删除任务",
+                confirm_delete_description: "是否删除<<{name}>>?",
+                confirm_delete_delete: "删除",
+                confirm_delete_cancel: "取消",
             },
             plugin: {
                 title: "插件",
@@ -109,6 +114,12 @@ class ChineseLanguagePlugin extends LanguagePlugin {
 
                 no_update: "没有更新项",
                 has_update: "有{count}个更新",
+
+                full_update: "全量下载",
+                full_update_info: "重新下载所有页面",
+
+                incremental_update: "增量下载",
+                incremental_update_info: "只下载缺少的页面",
             },
             server: {
                 success: "处理成功",

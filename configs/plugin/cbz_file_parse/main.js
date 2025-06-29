@@ -190,7 +190,7 @@ class Cbz_File_Parse extends FileParserPlugin {
                 // 强制生成cover_image
                 if (/\/cover\..*$/i.test(entry.name)) {
                     // 处理 cover 文件
-                    console.log('cover', entry.name);
+                    //console.log('cover', entry.name);
                     newConfig.cover_image = "";
 
                     // 处理cover_image

@@ -3,10 +3,10 @@
         <h1 class="title">{{ $t('download_task.title') }}</h1>
         <div class="dataBox">
             <el-table :data="list" stripe style="width: 100%">
-                <el-table-column :label="$t('download_task.col_status')" width="80">
+                <el-table-column :label="$t('download_task.col_status')" width="90">
                     <template #default="scope">
-                        <el-tag v-if="scope.row.type == '1'" type="success">{{ $t('update.update') }}</el-tag>
                         <el-tag v-if="scope.row.type == '0'" type="danger">{{ $t('download.add_to_task') }}</el-tag>
+                        <el-tag v-if="scope.row.type == '1'" type="success">{{ $t('update.update') }}</el-tag>
                     </template>
                 </el-table-column>
                 <el-table-column :label="$t('download_task.col_name')" prop="name"></el-table-column>
@@ -207,7 +207,11 @@ export default defineComponent({
                 return;
             }
 
-            this.$g.msgbox.confirm(`确定删除《${row.name}》吗?`, '删除任务', {
+            this.$g.msgbox.confirm(this.$t('download_task.confirm_delete_description',{name:row.name}), this.$t('download_task.confirm_delete_title'), {
+                type: 'warning',
+                confirmButtonClass: 'el-button--danger',
+                confirmButtonText: this.$t('download_task.confirm_delete_delete'),
+                cancelButtonText: this.$t('download_task.confirm_delete_cancel'),
                 beforeClose: (action, instance, done) => {
                     if (action === 'confirm') {
                         instance.confirmButtonLoading = true

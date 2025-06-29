@@ -9,7 +9,7 @@ class BasePlugin {
     this.need_install = config.need_install;
     this.path = path || "";
 
-    this.type = ''; // 'language' | 'search' | 'file-parser'
+    this.type = ''; // 'language' | 'search' | 'parser'
   }
 
   // 初始化方法
@@ -104,7 +104,7 @@ class SearchPlugin extends BasePlugin {
 class FileParserPlugin extends BasePlugin {
   constructor(id, name, config, path) {
     super(id, name, config);
-    this.type = 'file-parser';
+    this.type = 'parser';
     this.support_file = config.support_file;
     this.content_type = config.content_type;
     this.path = path;

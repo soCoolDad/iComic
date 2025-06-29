@@ -25,12 +25,39 @@
                                 @click="handleDownload_check(scope.row)">{{
                                     $t('setting.check_new') }}</el-button>
                             <el-button v-if="scope.row.update_count > 0" type="danger" :loading="ajaxWorking"
-                                @click="handleDownload_begin(scope.row)">{{
+                                @click="showUpdatePanel(scope.row)">{{
                                     $t('setting.update') }}</el-button>
                         </div>
                     </template>
                 </el-table-column>
             </el-table>
+        </div>
+        <div class="hide">
+            <el-dialog v-model="showToUpdate" :title="$t('update.update')" width="500" align-center>
+                <div class="panelBox">
+                    <div class="box">
+                        <div class="title">{{ $t('update.full_update') }}</div>
+                        <div class="desc">
+                            <div>{{ $t('update.full_update_info') }}</div>
+                        </div>
+                        <div class="buttons">
+                            <el-button :loading="ajaxWorking" @click="handleDownload_begin(curItem, 1)" type="danger">{{
+                                $t('update.full_update') }}</el-button>
+                        </div>
+                    </div>
+                    <div class="box">
+                        <div class="title">{{ $t('update.incremental_update') }}</div>
+                        <div class="desc">
+                            <div>{{ $t('update.incremental_update_info') }}</div>
+                        </div>
+                        <div class="buttons">
+                            <el-button :loading="ajaxWorking" @click="handleDownload_begin(curItem, 2)"
+                                type="primary">{{
+                                    $t('update.incremental_update') }}</el-button>
+                        </div>
+                    </div>
+                </div>
+            </el-dialog>
         </div>
     </div>
 </template>
@@ -40,7 +67,9 @@ export default defineComponent({
     name: 'update',
     data() {
         return {
+            curItem: undefined,
             ajaxWorking: false,
+            showToUpdate: false,
             list: [],
         };
     },
@@ -48,6 +77,10 @@ export default defineComponent({
         this.onload();
     },
     methods: {
+        showUpdatePanel(item) {
+            this.curItem = item;
+            this.showToUpdate = true;
+        },
         onload() {
             //
             if (this.ajaxWorking) {
@@ -82,19 +115,25 @@ export default defineComponent({
                 this.ajaxWorking = false;
             });
         },
-        handleDownload_begin(row) {
+        handleDownload_begin(row, type = 2) {
             if (this.ajaxWorking) {
                 return;
             }
 
             let search_result = row.update_data;
-
+            let update_start = 0;
             this.ajaxWorking = true;
+
+            if (type == 2) {
+                update_start = row.page_count;
+            }
 
             this.$g.http.send('/api/download/download', 'post', {
                 plugin_id: row.search_plugin,
                 name: row.name,
                 task_type: 1,
+                update_start,
+                library_id: row.id,
                 search_result: search_result
             }).then((res) => {
                 //console.log('onLoad success', res);
@@ -107,6 +146,7 @@ export default defineComponent({
                 this.$g.tipbox.error(err.message);
             }).finally(() => {
                 this.ajaxWorking = false;
+                this.showToUpdate = false;
             });
         },
         handleDownload_check(row) {
@@ -160,6 +200,27 @@ export default defineComponent({
 
     .dataBox {
         padding: 30px 0;
+    }
+
+    .panelBox {
+        .box {
+            padding: 15px 10px;
+
+            .title {
+                font-size: 16px;
+                font-weight: 600;
+            }
+
+            .desc {
+                padding: 10px 0;
+                color: #666;
+            }
+
+            .buttons {
+                text-align: left;
+                padding-top: 10px;
+            }
+        }
     }
 }
 </style>

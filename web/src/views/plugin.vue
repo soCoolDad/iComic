@@ -19,7 +19,7 @@
                                     <el-tag v-if="scope.row.type == 'language'">{{ $t('plugin.type_language')
                                         }}</el-tag>
                                     <el-tag v-if="scope.row.type == 'search'">{{ $t('plugin.type_search') }}</el-tag>
-                                    <el-tag v-if="scope.row.type == 'file-parser'">{{ $t('plugin.type_parse')
+                                    <el-tag v-if="scope.row.type == 'parser'">{{ $t('plugin.type_parse')
                                         }}</el-tag>
                                     <span>&nbsp;</span>
                                     <el-tag v-if="scope.row.installed == true" type="success">{{

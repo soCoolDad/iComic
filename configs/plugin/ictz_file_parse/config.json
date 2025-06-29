@@ -1,7 +1,7 @@
 {
     "id": "ictz_file_parse",
     "name": "ictz文件解析",
-    "type": "file-parser",
+    "type": "parser",
     "support_file": [
         ".ictz"
     ],

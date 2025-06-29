@@ -59,6 +59,11 @@ class EnglishLanguagePlugin extends LanguagePlugin {
                 btn_action_delete: "Delete",
                 errbox_title: "Errors occurred during download",
                 errbox_btn_colse: "Close",
+
+                confirm_delete_title: "Delete task",
+                confirm_delete_description: "Are you sure you want to delete task<<{name}>>?",
+                confirm_delete_delete: "Delete",
+                confirm_delete_cancel: "Cancel",
             },
             plugin: {
                 title: "Plugins",
@@ -109,6 +114,13 @@ class EnglishLanguagePlugin extends LanguagePlugin {
 
                 no_update: "No updates",
                 has_update: "Has {count} updates",
+
+
+                full_update: "Full update",
+                full_update_info: "Download all pages in one go (re-download everything)",
+
+                incremental_update: "Incremental update",
+                incremental_update_info: "Download only missing pages (partial update)",
             },
             server: {
                 success: "Processing successful",

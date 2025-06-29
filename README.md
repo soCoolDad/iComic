@@ -1,13 +1,10 @@
-# iComic
-iComic is an e-comic reading application with support for third-party plugins to fetch and parse files. Happy reading!
-
 ## 项目初衷
 mango停止维护之后，感觉缺了一个简洁的电子漫画阅读工具，而且还是部署在docker上的，最主要是能通过插件访问一些莫名其妙的网站进行友好的借鉴交流！就尝试对进行一部分改造，也修改了许多地方，让他可以支持更新漫画，多线程下载等。
 也写了几个莫名其妙的网站的插件！
 
 可是奈何Crystal让我欲仙欲死。遂放弃！
 
-重新用```Element-plus```,```Node.js```造了个轮子。放弃了多用户，tag标签的展示（主要用不上，在库页面展示一下就行了），实现了功能```库```，```阅读器```，```三方插件```，其他的暂时不想，主要也没其他需求了！有时间就实现```文件通过三方插件更新```吧，主要插件体系改变挺大，现在主要精力放在主程序上。
+重新用```Element-plus```,```Node.js```造了个轮子。放弃了多用户，tag标签的展示（主要用不上，在库页面展示一下就行了），目前实现功能```库```，```阅读器```，```三方插件```，```更新```
 
 ## 提前感谢
 [Mango](https://github.com/getmango/Mango)
@@ -20,19 +17,25 @@ mango停止维护之后，感觉缺了一个简洁的电子漫画阅读工具，
 
 
 # 关于Mango插件的兼容
-本来想兼容mango的插件,确实在插件里修改改个调用也就支持了。但是考虑到一些后续的开发计划。不得已放弃。我会贴上iComic的规范。你可以很容易的将mango插件导入到iComic里来
+本来想兼容mango的插件,可插件体系改动挺大的（函数名,函数返回,支持依赖）,如果想用之前的Mango插件,跟着规范修改也能支持。我会贴上iComic的规范。你可以很容易的将mango插件导入到iComic里来。
 
 # 目前支持的格式
-```cbz```
+对zip有莫名的崇拜，库文件用zip来存储，如cbz。
 
-对zip有莫名的崇拜，库文件用zip来存储，如cbz。所以整个iComic对于外部导入到库的文件目前只实现了cbz的解析插件（而且是iComic规范的存储格式）。你也可以增加扩展iComic的插件来支持其他格式文件。
+加上iComic能通过插件来实现对文件的解析。
 
-以后可能看时间会支持其他的文件格式。比如压缩包的电子书呀啥的！现在主阅读器只支持image的查看（给予对于本人莫名其妙的需求嘛）。
+所以目前只实现了 ```cbz``` ```ictz``` 的解析插件（而且是iComic规范的存储格式）。
 
-# 规范
+你也可以扩展iComic的插件来支持其他格式文件。注意返回iComic所支持的规范。
 
-### 库文件规范[基于插件cbz_file_parse]
-#### 目录
+### ```cbz```
+漫画包文件
+
+### ```ictz```
+小说包文件
+
+# 约定规范
+### 库文件目录
 ```
 |-configs
 |----library
@@ -40,17 +43,30 @@ mango停止维护之后，感觉缺了一个简洁的电子漫画阅读工具，
 |------------library name.cbz
 |------------library name.json
 |--------library name1
-|------------library name1.cbz
+|------------library name1.ictz
 |------------library name1.json
 ```
-#### library name.cbz
+
+### 文件包目录
+#### 请注意！！清晰的目录结构会让解析插件更好的通过排序来确定章节次序
+以下是推荐的包目录
 ```
-library name1.cbz
+第一话\第一话名称.png
+第1章\第1章名称.png
+...
+```
+如果你的章节名称或者目录名称没有次序的话
+
+解析插件可能没那么智能的返回你想要的章节次序！
+### 以下是iComic支持的包文件目录
+#### ```.cbz```
+```
+name.cbz
 |----cover
-|--------cover.png          //缩略图
+|--------cover.png
 |----page_name
 |--------page_Detail_0_0.png
-|--------page_Detail_0_1.png
+|--------page_Detail_0_1.jpg
 |-------- ...
 |----page_name2
 |--------page_Detail_1_0.png
@@ -58,21 +74,43 @@ library name1.cbz
 |-------- ...
 |---- ...
 ```
-#### library name.json
+#### ```ictz```
 ```
-｜-library name.json
-｜----name
-｜----type          //"comic"
-｜----cover_image   //Base64
-｜----author
-｜----description
-｜----tags          //["tag1","tag2"...]
-｜----page_count    //100
-｜----page_list     //[{}] 解析插件来解析
+name.ictz
+|----cover
+|--------cover.png
+|----page_name
+|--------page_Detail_0_0.txt
+|----page_name2
+|--------page_Detail_1_0.txt
+|---- ...
 ```
 
-### 三方插件规范
-你可以编写iComic支持的三方插件来实现解析文件夹和访问莫名其妙的网站
+#### library name.json
+库文件所对应的json文件如果不存在的话解析插件会生成，但是还需遵守以下约定
+```json
+{
+  "name": "文件名，展示在库里",//必须项
+  "type": "类型：comic/text/或者其他解析插件所定义的",//必须项
+  "author": "作者名",
+  "page_count": 0,//总页数 必须项
+  "cover_image": "Base64 图片字符串",
+  "tags": ["标签1", "标签2"],
+  "description": "简介",
+  "page_list": [{//插件解析 你也可以实现其他解析结构 必须项
+    "title": "章节标题",
+    "region": [1, 2, 3, 4]//对应在zip文件中的次序
+  }],
+  "parse_plugin": "解析插件id",//解析插件需写入此项
+  "search_plugin": "搜索插件id",//主程序会自动写入此项
+  "search_result": {//调用插件search时返回的结构，用于更新，否则更新时候提示找不到配置
+    "url": "漫画或者小说的详情页"
+  }
+}
+```
+
+### 三方插件规范约定
+你可以编写iComic支持的三方插件来实现解析文件/文件夹和访问莫名其妙的网站
 
 ### 插件目录定义
 ```
@@ -84,9 +122,6 @@ configs/plugin
 ```
 ### 插件工作流程
 iComic将插件分为三种
-#### ```language```
-语言包支持，打算支持，现在，emmm。。。页面上都有吧,有时间再实现吧
-
 #### ```search```
 你需要在main.js里实现以下方法
 ```typescript
@@ -107,7 +142,7 @@ class search_class extends SearchPlugin{
                 }
             ]
         }catch(error){
-            //出错是返回带状态的错误信息
+            //出错返回
             return { status: false, msg: error.message };
         }
     }
@@ -130,7 +165,7 @@ class search_class extends SearchPlugin{
                 ]
             }
         }catch(error){
-            //出错是返回带状态的错误信息
+            //出错返回
             return { status: false, msg: error.message };
         }
     }
@@ -145,20 +180,25 @@ class search_class extends SearchPlugin{
                 ]
             }
         } catch (error) {
+            //出错返回
             return { status: false, msg: error.message };
         }
     }
 
-    //5.处理章节详情的块
+    //5.处理章节详情的块，主程序会将第4步所拿到的blocks里的block传入
+    // 你需要返回一个二进制的数组用于存储到zip包里
     async getPageDetailBlock(block){
         try {
             return Buffer //返回一个二进制数组
         } catch (error) {
+            //出错返回
             return { status: false, msg: error.message };
         }
     }
 
     //6.如果你对Block有特殊的处理
+    // 主程序在存入zip之前会向你询问
+    // 你返回处理后的二进制数组即可
     async parseFile(fileBuffer) {
         try {
             return fileBuffer;
@@ -167,8 +207,203 @@ class search_class extends SearchPlugin{
         }
     }
 }
+
+module.exports = {
+    Plugin: search_class
+};
 ```
 
-#### ```file-parser```
+#### ```parser```
 
-#### 先写到这！！！
+```typescript
+class parse_class extends FileParserPlugin {
+    /**
+     * 解析文件
+     * file_path    文件路径
+     * config_path  配置文件路径
+     * cbx_success  成功后调用
+     * cbx_error    失败后调用
+     */
+    async parseFile(file_path, config_path, cbx_success, cbx_error) {
+        // 生成基础json对象
+        try {
+            let config = {
+                name,
+                type,
+                author,
+                cover_image,
+                tags: [],
+                description: "",
+                page_count,
+                page_list: [{page}]
+            };
+            //你需要返回以上对象
+            //需要注意，如果该文件存在的话请将原来的键值复制过去
+            cbx_success(config);
+        } catch(error) {
+            //如果出错，返回对应格式
+            cbx_error({ status: false, msg: "错误信息" });
+        }
+    }
+
+    /**
+     * 解析插件也需要负责文件输出
+     * file_path    文件路径
+     * config_path  配置文件路径
+     * page         当前阅读章节的次序
+     * block_index  当前块的次序
+     */
+    async parsePageBlock(file_path, config_path, page, block_index) {
+        /**
+         * 成功从zip文件里拿到块数据后
+         * serverbacktype
+         * 你需要告诉主程序serverbacktype是什么
+         * 目前支持 image/text
+         * 
+         * data
+         * 文件的二进制数组
+         * 
+         * ext
+         * 文件的扩展名
+         */
+        return { 
+            serverbacktype: 'image', 
+            data: imageBuffer, 
+            ext: fileExt 
+        };
+
+        /**
+         * 如果出错你需要返回对应格式
+        */
+        return { status: false, msg: error.message };
+    }
+
+    /**
+     * 当然，你也需要在库目录里查找所能支持的文件
+     */
+    async scan(library_path) {
+        //你需要返回以下对象让主程序知道有哪些文件
+        let scan_files = [
+            {
+                name: "文件名称",
+                path: "文件路径",
+                config_path: "配置文件路径",
+                config: {
+                    //配置
+                }
+            }
+        ];
+
+        return scan_files;
+    }
+}
+
+module.exports = {
+    Plugin: parse_class
+};
+
+```
+
+#### ```language```
+如果你想节目展示其他语言，你可以参考lang-zh-cn插件来实现！
+```typescript
+class language_class extends LanguagePlugin {
+    async getAllData() {
+        return {
+            //参考lang-zh-cn插件
+        };
+    }
+}
+//global.Plugin = EnglishLanguagePlugin;
+module.exports = {
+    Plugin: language_class
+};
+```
+#### ```iComic```
+插件里可能需要文件访问，网络访问，iComic提供了```iComic```对象来使用
+```typescript
+//如
+async search(query) {
+    iComic.get(url,header)
+    iComic.post(url,header,data,timeout)
+}
+
+class iComic{
+    //设置超时
+    setHttpTimeout(timeout)
+
+    //读取文件
+    //同fs.readFile
+    read() 
+
+    //同fs.existsSync
+    existsSync()
+
+    //同fs.readFileSync
+    readFileSync()
+
+    //同fs.existsSync
+    existsSync()
+
+    //同fs.statSync
+    statSync()
+
+    //同fs.readdirSync
+    readdirSync()
+
+    //发送post请求
+    post(url,headers,data)
+
+    //发送get请求
+    get(url,headers)
+
+    css(html,css)
+
+    text(html,css)
+
+    attr(html,css,attr)
+}
+```
+
+#### ```plugin config.json```
+插件的配置文件
+```json
+{
+    "id": "插件id,用英文以防奇怪的问题",
+    "name": "插件名称",
+    "type": "search", //插件类型 [language/search/parser]
+    "description": "插件描述",
+    "placeholder": "搜索框展示",
+    "author": "作者名",
+    "version": "版本",
+    //page并发，建议1，因为我还没处理UI展示混乱问题
+    "page_concurrency": 1,  
+    //block并发，建议不超过cpu数量，主程序会限制最大为cpu数量
+    "block_concurrency": 4, 
+    //part包合并并发，建议不超过cpu数量，主程序会限制最大为cpu数量
+    "merge_concurrency": 4, 
+    //调用插件方法如果报错后重试次数
+    "retry_count": 3,
+    //需不需要安装package.json里定义的依赖
+    //为true需在插件页里安装
+    "need_install": false
+}
+```
+
+#### ```plugin package.json```
+插件的配置文件
+```json
+{
+    "name": "插件名",
+    "version": "版本",
+    "description": "描述",
+    "author": "作者",
+    //人口文件
+    "main": "main.js",
+    "scripts": {},
+    //插件依赖
+    "dependencies": {}
+}
+```
+
+#### 以上就是整个iComic的规范

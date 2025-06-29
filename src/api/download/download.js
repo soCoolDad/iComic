@@ -31,7 +31,10 @@ class download {
         let plugin_id = req.body.plugin_id;
         let name = req.body.name;
         let search_result = req.body.search_result;
+        let update_start = req.body.update_start || 0;
+        let update_library_id = req.body.library_id || 0;
         let task_type = req.body.task_type || 0;
+
 
         let status = 0; // 0已添加未开始 1正在下载 2下载完成 3下载失败 4暂停下载 5删除
 
@@ -51,7 +54,7 @@ class download {
                 }
 
                 //如果任务没有添加就添加到下载任务表
-                let ret = helpers.db_query.run('INSERT INTO download_task(search_plugin,type,name,search_result,status) VALUES(?,?,?,?,?)', [plugin_id, task_type,name, JSON.stringify(search_result), status]);
+                let ret = helpers.db_query.run('INSERT INTO download_task(update_start,update_library_id,search_plugin,type,name,search_result,status) VALUES(?,?,?,?,?,?,?)', [update_start,update_library_id, plugin_id, task_type, name, JSON.stringify(search_result), status]);
 
                 if (ret) {
                     //返回任务id

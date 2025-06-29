@@ -356,7 +356,7 @@ export default defineComponent({
                 this.ajaxWorking = false;
             });
 
-            this.$g.http.send('/api/plugin/getPluginByType', 'post', { type: 'file-parser' }).then((res) => {
+            this.$g.http.send('/api/plugin/getPluginByType', 'post', { type: 'parser' }).then((res) => {
                 if (res.status) {
                     this.plugin_list = res.data;
                 }

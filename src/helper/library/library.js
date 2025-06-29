@@ -45,7 +45,7 @@ class library {
         const existingPaths = new Set(existingRecords.map(record => record.path));
         
         // 2. 扫描文件系统获取最新文件列表
-        let plugins = helpers.plugin.getPluginsByType('file-parser');
+        let plugins = helpers.plugin.getPluginsByType('parser');
         let scanFiles = [];
         for (let plugin of plugins) {
             try {
@@ -167,7 +167,7 @@ class library {
      * @param {number} plugin_id - 插件主键
      * @returns {object} 解析启动结果
      *   helpers.db_query 数据库处理   
-     *   plugs = helpers.plugin.getPluginsByType("file-parser")   插件处理
+     *   plugs = helpers.plugin.getPluginsByType("parser")   插件处理
      *   plug.parseFile(file_path,config_path,cbx_success,cbx_error)
      * 
      *   根据library_id获取对应的library
@@ -274,8 +274,8 @@ class library {
         for (const library of libraries) {
             // 根据library.path来获取后缀名
             const ext = path.extname(library.path);
-            // 获取所有type为file-parser的插件
-            const plugs = helpers.plugin.getPluginsByType("file-parser");
+            // 获取所有type为parser的插件
+            const plugs = helpers.plugin.getPluginsByType("parser");
 
             //console.log(ext, library.path);
 
