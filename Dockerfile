@@ -41,8 +41,7 @@ WORKDIR /app
 # 4. 暴露配置目录和端口
 VOLUME /configs
 EXPOSE 3000
-ENV NODE_ENV=production \
-    NODE_OPTIONS="--max-old-space-size=512 --max-semi-space-size=512" \
+ENV NODE_OPTIONS="--max-old-space-size=512 --max-semi-space-size=512" \
     CONFIG_DIR="/configs" \
     SERVER_PORT=3000 \
     UPDATE_REPO="soCoolDad/iComic" \
