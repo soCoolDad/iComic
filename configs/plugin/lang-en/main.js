@@ -97,6 +97,8 @@ class EnglishLanguagePlugin extends LanguagePlugin {
                 current_version_is_new: "Version [{version}] is already the latest version",
                 device_title: "Request device",
                 device_desc:"The request headers that iComic carries when making requests",
+                HTTP_PROXY: "HTTP Proxy",
+                HTTP_PROXY_INFO: "Use HTTP proxy to speed up requests. For example: http://127.0.0.1:7890",
             },
             update: {
                 title: "Update",

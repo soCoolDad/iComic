@@ -5,8 +5,24 @@ const express = require('express');
 const app = express();
 const port = process.env.SERVER_PORT || 3000;
 
-const helpers = require('./helper');
+// 获取根目录
+let rootDir = path.join(__dirname, "/../");
+console.log("init", "root dir:", rootDir);
+
+// 获取配置文件目录
+let configDir = process.env.CONFIG_DIR || path.join(rootDir, "configs");
+console.log("init", "config dir:", configDir);
+//解析system.json
+const SettingJson = require(path.join(configDir, "system.json"));
+//将需要复制到环境的变量加载到环境变量
+(SettingJson.COPT_TO_EVN || []).forEach(key => {
+    if (SettingJson[key]) {
+        process.env[key] = SettingJson[key]
+    }
+});
+
 const apis = require('./api');
+const helpers = require('./helper');
 
 //设置更新仓库
 process.env.UPDATE_REPO = process.env.UPDATE_REPO || "soCoolDad/iComic";
@@ -25,16 +41,8 @@ process.on('unhandledRejection', (reason, promise) => {
 // Middleware to parse JSON bodies
 app.use(express.json());
 
-// 获取根目录
-rootDir = path.join(__dirname, "/../");
-console.log("init", "root dir:", rootDir);
-
-// 获取配置文件目录
-configDir = process.env.CONFIG_DIR || path.join(rootDir, "configs");
-console.log("init", "config dir:", configDir);
-
 // 初始化数据库
-dbDir = path.join(configDir, "db");
+let dbDir = path.join(configDir, "db");
 if (fs.existsSync(dbDir) === false) {
     fs.mkdirSync(dbDir, { recursive: true });
 }
@@ -59,7 +67,7 @@ console.log("init", "setting dir:", configDir);
 
 
 // 初始化 plugin
-pluginDir = path.join(configDir, "plugin");
+let pluginDir = path.join(configDir, "plugin");
 if (fs.existsSync(pluginDir) === false) {
     fs.mkdirSync(pluginDir, { recursive: true });
 }
@@ -67,7 +75,7 @@ helpers.plugin.init(pluginDir);
 console.log("init", "plugin dir:", pluginDir);
 
 //初始化库
-libraryDir = path.join(configDir, "library");
+let libraryDir = path.join(configDir, "library");
 if (fs.existsSync(libraryDir) === false) {
     fs.mkdirSync(libraryDir, { recursive: true });
 }

@@ -21,6 +21,17 @@
                 </div>
             </div>
             <div class="sub_box">
+                <div class="sub_title">{{ $t('setting.HTTP_PROXY') }}</div>
+                <div class="desc">{{ $t('setting.HTTP_PROXY_INFO') }}</div>
+                <div class="desc">
+                    <el-input v-model="HTTP_PROXY" placeholder="Please input HTTP Proxy"></el-input>
+                </div>
+                <div class="buttons">
+                    <el-button round type="primary" :loading="ajaxWorking" @click="saveSystem('Http Proxy')">{{
+                        $t('setting.save') }}</el-button>
+                </div>
+            </div>
+            <div class="sub_box">
                 <div class="sub_title">{{ $t('setting.language') }}</div>
                 <div class="desc">
                     <el-select v-model="lang" placeholder="Language">
@@ -144,7 +155,8 @@ export default defineComponent({
             device: 0,
             devices: [] as string[],
             clearCacheWorking: false,
-            GITHUB_PAT: ""
+            GITHUB_PAT: "",
+            HTTP_PROXY: ""
         }
     },
     mounted() {
@@ -169,6 +181,9 @@ export default defineComponent({
             } else if (key == "Device") {
                 config_name = "ICOMIC_VIRTUAL_DEVICE_INDEX";
                 config_value = this.device;
+            } else if (key == "Http Proxy") {
+                config_name = "ICOMIC_HTTP_PROXY";
+                config_value = this.HTTP_PROXY;
             } else {
                 return;
             }
@@ -245,6 +260,7 @@ export default defineComponent({
                     this.version = res.data.version;
                     this.github_repo = res.data.UPDATE_REPO;
                     this.GITHUB_PAT = res.data.GITHUB_PAT;
+                    this.HTTP_PROXY = res.data.ICOMIC_HTTP_PROXY;
                     this.lang = localStorage.getItem('lang') || res.data.LANGUAGE;
                     this.devices = res.data.ICOMIC_VIRTUAL_DEVICE;
                     this.device = res.data.ICOMIC_VIRTUAL_DEVICE_INDEX;

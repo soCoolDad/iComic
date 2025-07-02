@@ -97,6 +97,7 @@ class PluginManager {
 
     // 创建沙箱环境
     createSandbox(pluginId, pluginDir) {
+        //console.log(pluginId,pluginDir);
         const sandbox = {
             require: this.createScopedRequire(pluginDir),
             console,
@@ -143,6 +144,7 @@ class PluginManager {
                 );
             } catch (e) {
                 // Fall back to the parent's node_modules or core modules
+                console.log("require error",e);
                 return originalRequire(mod);
             }
         };

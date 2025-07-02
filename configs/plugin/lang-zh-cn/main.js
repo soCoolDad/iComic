@@ -97,6 +97,8 @@ class ChineseLanguagePlugin extends LanguagePlugin {
                 current_version_is_new: "版本[{version}]已是最新版本",
                 device_title: "请求设备",
                 device_desc: "iComic 在发起请求时所携带的请求头",
+                HTTP_PROXY: "网络代理",
+                HTTP_PROXY_INFO: "设置HTTP代理。 例如: http://127.0.0.1:7890",
             },
             update: {
                 title: "更新",

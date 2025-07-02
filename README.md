@@ -323,7 +323,7 @@ module.exports = {
 ```
 
 #### ```language```
-如果你想节目展示其他语言，你可以参考lang-zh-cn插件来实现！
+如果你想界面展示其他语言，你可以参考lang-zh-cn插件来实现！
 ```typescript
 class language_class extends LanguagePlugin {
     async getAllData() {

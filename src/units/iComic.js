@@ -2,11 +2,15 @@ const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const cheerio = require('cheerio');
-
+const { HttpsProxyAgent } = require('https-proxy-agent');
 class iComic_http {
     timeout = 1000 * 60;
     constructor() {
-        this.virtual_device = process.env.ICOMIC_VIRTUAL_DEVICE || ["ICOMIC/GETER V0.0.3"];
+        this.refreshVirtualDevice();
+    }
+
+    refreshVirtualDevice() {
+        this.virtual_device = (process.env.ICOMIC_VIRTUAL_DEVICE && process.env.ICOMIC_VIRTUAL_DEVICE.split(",")) || ["ICOMIC/GETER V0.0.3"];
         this.virtual_device_index = process.env.ICOMIC_VIRTUAL_DEVICE_INDEX || 0;
     }
 
@@ -30,8 +34,10 @@ class iComic_http {
     }
 
     getHeader() {
+        this.refreshVirtualDevice();
         if (this.virtual_device.length > 0) {
             let userAgent = this.virtual_device[this.virtual_device_index];
+
             if (userAgent && userAgent.length > 0) {
                 return {
                     "User-Agent": userAgent
@@ -99,6 +105,13 @@ class iComic_http {
                     }
                 }
 
+                let proxyUrl = process.env.ICOMIC_HTTP_PROXY || "";
+                let agent = undefined;
+                if (proxyUrl) {
+                    console.log("init", "proxy:", proxyUrl);
+                    agent = new HttpsProxyAgent(proxyUrl);
+                }
+
                 // 设置默认请求头
                 const options = {
                     hostname,
@@ -109,7 +122,8 @@ class iComic_http {
                         'Content-Type': 'text/html', // 默认内容类型为html
                         ...this.getHeader(),
                         ...in_headers // 允许传递自定义头部
-                    }
+                    },
+                    agent
                 };
 
                 //console.log("options", options);
@@ -136,7 +150,7 @@ class iComic_http {
                 //console.log("req", req);
 
                 req.on('error', (e) => {
-                    console.log("req error", e);
+                    console.log("http post error", e);
                     reject(e);
                 });
 
@@ -173,6 +187,13 @@ class iComic_http {
                     }
                 }
 
+                let proxyUrl = process.env.ICOMIC_HTTP_PROXY || "";
+                let agent = undefined;
+                if (proxyUrl) {
+                    console.log("init", "proxy:", proxyUrl);
+                    agent = new HttpsProxyAgent(proxyUrl);
+                }
+
                 const options = {
                     hostname: urlObj.hostname,
                     path: urlObj.pathname + (urlObj.search || ''),
@@ -181,13 +202,15 @@ class iComic_http {
                     headers: {
                         ...this.getHeader(),
                         ...in_headers
-                    }
+                    },
+                    agent
                 };
 
                 const req = httpModule.get(options, (res) => {
                     // 根据 content-type 判断是否为二进制
                     // console.log("res:", url, res.headers);
                     // 二进制数组用来存储返回的二进制数据
+
                     const responseBody = [];
 
                     res.on('data', (chunk) => {
@@ -204,7 +227,10 @@ class iComic_http {
                     });
                 });
 
-                req.on('error', reject);
+                req.on('error', (e) => {
+                    console.error("http get error", e, options);
+                    reject(e);
+                });
                 req.end();
             } catch (error) {
                 console.error("http get error", error);
@@ -213,17 +239,6 @@ class iComic_http {
                 clearTimeout(timeout);
             }
         });
-    }
-
-    virtual_device(device_index) {
-        // let device = this.getDevice(device_index);
-
-        // if (device['User-Agent']) {
-        //     this.virtual_device_index = device_index;
-        //     return true;
-        // } else {
-        //     return false;
-        // }
     }
 }
 
