@@ -28,7 +28,7 @@
             <div class="scroller" ref="scroller">
                 <div class="scroller_content">
                     <div class="image_box" v-for="item in items" v-if="plugin_content_type == 'image'">
-                        <el-image class="image" :src="item" lazy loading="lazy">
+                        <el-image class="image" loading="lazy" :src="item" lazy>
                             <template #placeholder>
                                 <div class="image-slot">
                                     <div>iComic</div>
@@ -404,9 +404,7 @@ export default defineComponent({
         top: 0;
         right: 0;
         bottom: 0;
-        height: auto;
-        //overflow: auto;
-
+        
         .header {
             position: fixed;
             display: flex;
@@ -447,7 +445,7 @@ export default defineComponent({
         }
 
         .scroller {
-            position: relative;
+            position: absolute;
             left: 0;
             top: 0;
             right: 0;
@@ -474,28 +472,21 @@ export default defineComponent({
                     }
 
                     .image {
-                        display: block; // 确保图片本身是块级元素
+                        //display: block; // 确保图片本身是块级元素
                         width: 100%;
                         height: auto;
                     }
 
                     :deep(.el-image__wrapper) {
-                        display: block;
                         position: relative;
+                        display: block;
                         margin: 0; // 清除默认外边距
                         padding: 0; // 清除默认内边距
                         line-height: 10px;
                     }
 
-                    :deep(.is-loading) {
-                        //display: block;
-                        position: absolute;
-                        left: 0;
-                        right: 0;
-                        top: 0;
-                        bottom: 0;
-                        margin: 0;
-                        padding: 0;
+                    :deep(.el-image__inner.is-loading) {
+                        display: inline-block;
                     }
 
                     .image-slot {
@@ -587,7 +578,7 @@ export default defineComponent({
     }
 
     &.read_mode {
-        .scroller {
+        .scroller{
             background-color: #fcfcfc;
             color: black;
         }
