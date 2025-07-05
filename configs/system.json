@@ -5,7 +5,7 @@
         "ICOMIC"
     ],
     "ICOMIC_VIRTUAL_DEVICE_INDEX": 0,
-    "LANGUAGE": "lang_en",
+    "LANGUAGE": "lang_zh_cn",
     "UPDATE_REPO": "soCoolDad/iComic",
     "GITHUB_PAT": "",
     "ICOMIC_HTTP_PROXY": "",
@@ -16,6 +16,5 @@
         "UPDATE_REPO",
         "GITHUB_PAT",
         "ICOMIC_HTTP_PROXY"
-    ],
-    "version": "0.0.30"
+    ]
 }

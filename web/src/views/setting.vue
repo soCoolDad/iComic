@@ -327,7 +327,7 @@ export default defineComponent({
                                 // 刷新页面
                                 setTimeout(() => {
                                     window.location.reload();
-                                }, 2000);
+                                }, 5000);
                             }, 500)
                             this.ajaxWorking = false;
                         });
