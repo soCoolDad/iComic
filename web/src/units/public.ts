@@ -10,18 +10,34 @@ export class Http {
 
     async send(url: string, method: string, data: object = {}, timeout = 30000) {
         try {
+            //拼接url，处理baseURL和url可能出现/地址问题
+            let baseURL = this.baseURL, sendURL = url;
+            let realURL = "";
+
+            if (baseURL.endsWith("/")) {
+                baseURL = baseURL.substring(0, baseURL.length - 1);
+            }
+
+            if (sendURL.startsWith("/")) {
+                sendURL = sendURL.substring(1);
+            }
+
+            realURL = baseURL + "/" + sendURL;
+
             const config: any = {
-                url: this.baseURL + url,
+                url: realURL,
                 method,
-                //headers,
                 timeout
             }
+
             if (method.toLowerCase() === "get") {
-                config.params = data
+                config.params = data;
             } else {
-                config.data = data
+                config.data = data;
             }
-            const response: AxiosResponse = await axios.request(config)
+
+            const response: AxiosResponse = await axios.request(config);
+
             return {
                 status: response.status,
                 ...response.data
@@ -37,15 +53,15 @@ export class Http {
 }
 
 export class GUnits {
-    http: Http
-    msg: typeof ElMessage
-    msgbox: typeof ElMessageBox
-    tipbox: typeof ElNotification
+    http: Http;
+    msg: typeof ElMessage;
+    msgbox: typeof ElMessageBox;
+    tipbox: typeof ElNotification;
     constructor() {
-        this.http = new Http()
-        this.msg = ElMessage
-        this.msgbox = ElMessageBox
-        this.tipbox = ElNotification
+        this.http = new Http();
+        this.msg = ElMessage;
+        this.msgbox = ElMessageBox;
+        this.tipbox = ElNotification;
     }
 }
 
