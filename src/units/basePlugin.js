@@ -34,7 +34,7 @@ class BasePlugin {
     });
 
     if (result.error || result.status !== 0) {
-      throw new Error(`Failed to install dependencies for ${path.basename(pluginPath)}`);
+      throw new Error(`Failed to install dependencies for ${(this.path)} - Err: ${result.error.message}`);
     }
   }
 }
@@ -42,9 +42,8 @@ class BasePlugin {
 // 语言数据插件
 class LanguagePlugin extends BasePlugin {
   constructor(id, name, config, path) {
-    super(id, name, config);
+    super(id, name, config, path);
     this.type = 'language';
-    this.path = path;
   }
 
   // 获取所有语言数据
@@ -56,9 +55,8 @@ class LanguagePlugin extends BasePlugin {
 // 搜索插件
 class SearchPlugin extends BasePlugin {
   constructor(id, name, config, path) {
-    super(id, name, config);
+    super(id, name, config, path);
     this.type = 'search';
-    this.path = path;
     this.placeholder = config.placeholder;
   }
 
@@ -103,11 +101,10 @@ class SearchPlugin extends BasePlugin {
 // 文件解析插件
 class FileParserPlugin extends BasePlugin {
   constructor(id, name, config, path) {
-    super(id, name, config);
+    super(id, name, config, path);
     this.type = 'parser';
     this.support_file = config.support_file;
     this.content_type = config.content_type;
-    this.path = path;
   }
 
   // 解析文件

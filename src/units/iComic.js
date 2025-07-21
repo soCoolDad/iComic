@@ -25,11 +25,11 @@ class iComic_http {
         url = url.trim();
 
 
-        // 1. 允许 ASCII 安全字符 + 汉字
+        // 2. 允许 ASCII 安全字符 + 汉字
         // 严格兼容 RFC 3986 
         url = url.replace(/[^\w\-_.~!*'();:@&=+$,/?%#[\]\u4e00-\u9fa5]/g, '');
 
-        // 2. 对汉字等非 ASCII 字符进行编码（可选）
+        // 3. 对汉字等非 ASCII 字符进行编码
         return encodeURI(url);
     }
 
@@ -55,7 +55,7 @@ class iComic_http {
     async post(url, headers, data) {
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
-                throw new Error(`[http] 请求超时: ${url}`)
+                reject(new Error(`[http] 请求超时: ${url}`));
             }, this.timeout);
 
             try {
@@ -335,11 +335,7 @@ class iComicCtrl {
 
     readFileSync(...args) {
         return fs.readFileSync(...args);
-    }
-
-    existsSync(...args) {
-        return fs.existsSync(...args);
-    }
+    } ß
 
     statSync(...args) {
         return fs.statSync(...args);
@@ -347,11 +343,6 @@ class iComicCtrl {
 
     readdirSync(...args) {
         return fs.readdirSync(...args);
-    }
-
-    //虚拟网络设备
-    Virtual_device(device_index) {
-        return this.#html.virtual_device(device_index);
     }
 
     //发送post请求

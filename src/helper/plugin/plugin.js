@@ -31,12 +31,25 @@ class PluginManager {
 
         // 监听插件目录变化
         this.watcher
-            .on('addDir', dir => this.loadPlugin(dir))
+            .on('addDir', async dir => {
+                const ready = await this.isPluginReady(dir);
+                if (ready) await this.loadPlugin(dir);
+            })
             .on('unlinkDir', dir => this.unloadPlugin(dir))
             .on('change', file => this.reloadPlugin(file));
 
         // 加载现有插件
         await this.loadAllPlugins();
+    }
+
+    async isPluginReady(dir) {
+        try {
+            await fs.access(path.join(dir, 'config.json'));
+            await fs.access(path.join(dir, 'main.js'));
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     // 加载所有插件
@@ -52,7 +65,7 @@ class PluginManager {
     }
 
     // 加载单个插件
-    async loadPlugin(pluginDir) {
+    async loadPlugin(pluginDir, retryCount = 3) {
         try {
             // 读取插件配置
             const configPath = path.join(pluginDir, 'config.json');
@@ -91,6 +104,11 @@ class PluginManager {
 
             console.log(`Plugin loaded: ${plugin.id} on ${plugin.path}`);
         } catch (err) {
+            if (retryCount > 0) {
+                console.log(`Retrying load plugin (${4 - retryCount}/3) for ${pluginDir}`);
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 等待500ms
+                return this.loadPlugin(pluginDir, retryCount - 1);
+            }
             console.error(`Failed to load plugin from ${pluginDir}:`, err);
         }
     }
@@ -144,12 +162,12 @@ class PluginManager {
                 );
             } catch (e) {
                 // Fall back to the parent's node_modules or core modules
-                console.log("require error",e);
+                console.log("require error", e);
                 return originalRequire(mod);
             }
         };
     }
-
+    œ
     // 重新加载插件
     async reloadPlugin(changedFile) {
         const pluginDir = path.dirname(changedFile);
