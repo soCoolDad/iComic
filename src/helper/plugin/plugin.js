@@ -162,7 +162,7 @@ class PluginManager {
                 );
             } catch (e) {
                 // Fall back to the parent's node_modules or core modules
-                console.log("require error", e);
+                // console.log("require error", e);
                 return originalRequire(mod);
             }
         };

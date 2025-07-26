@@ -25,7 +25,7 @@
                                     <el-tag v-if="scope.row.installed == true" type="success">{{
                                         $t('plugin.install_success') }}</el-tag>
                                     <el-tag v-if="scope.row.installed == false && scope.row.need_install == true"
-                                        type="danger">{{ $t('need_install') }}</el-tag>
+                                        type="danger">{{ $t('plugin.need_install') }}</el-tag>
                                 </div>
                             </div>
                             <div class="description">
