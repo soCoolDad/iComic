@@ -189,6 +189,7 @@ class iComic_http {
 
                 let proxyUrl = process.env.ICOMIC_HTTP_PROXY || "";
                 let agent = undefined;
+
                 if (proxyUrl) {
                     console.log("init", "proxy:", proxyUrl);
                     agent = new HttpsProxyAgent(proxyUrl);
@@ -224,6 +225,8 @@ class iComic_http {
                             headers: res.headers,
                             body: Buffer.concat(responseBody)
                         });
+
+                        //console.log("http get", url, res);
                     });
                 });
 
@@ -335,7 +338,7 @@ class iComicCtrl {
 
     readFileSync(...args) {
         return fs.readFileSync(...args);
-    } ß
+    }
 
     statSync(...args) {
         return fs.statSync(...args);
