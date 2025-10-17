@@ -83,7 +83,7 @@ import {
 </script>
 <script lang="ts">
 import { defineComponent } from 'vue';
-import LazyImage from '../components/LazyImage.vue';
+import LazyImage from '../components/lazyImage.vue';
 
 interface file_item {
     id: string,
