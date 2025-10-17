@@ -158,7 +158,7 @@ class PluginManager {
             try {
                 // First try to resolve in the plugin's node_modules
                 return originalRequire(
-                    require.resolve(mod, { paths: [path.join(pluginDir, 'node_modules')] })
+                    require.resolve(mod, { paths: [pluginDir, path.join(pluginDir, 'node_modules')] })
                 );
             } catch (e) {
                 // Fall back to the parent's node_modules or core modules

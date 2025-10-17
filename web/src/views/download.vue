@@ -22,7 +22,7 @@
                 </el-select>
             </el-col>
             <el-col :xs="7" :sm="7" :md="7" :lg="7" :xl="7">
-                <el-button width="100%" @click="search" :Loading="ajaxWorking">{{ $t('download.search') }}</el-button>
+                <el-button width="100%" @click="search" :loading="ajaxWorking">{{ $t('download.search') }}</el-button>
             </el-col>
         </el-row>
 
@@ -51,7 +51,7 @@
                         <template #default="scope">
                             <div class="detail">
                                 <div class="title">
-                                    <div>{{$t('download.col_title')}}</div>
+                                    <div>{{ $t('download.col_title') }}</div>
                                     <div>
                                         <b>
                                             {{ scope.row.title }}
@@ -59,7 +59,7 @@
                                     </div>
                                 </div>
                                 <div class="description">
-                                    <div>{{$t('download.col_description')}}</div>
+                                    <div>{{ $t('download.col_description') }}</div>
                                     <div class="showTowLine">
                                         {{ scope.row.description }}
                                     </div>
@@ -70,17 +70,22 @@
                     <el-table-column :label="$t('download.add_to_col')" width="130">
                         <template #default="scope">
                             <div class="downloadBtnBox">
-                                <el-button type="primary" @click="handleDownload(scope.row)">{{ $t('download.add_to_task') }}</el-button>
+                                <el-button type="primary" @click="handleDownload(scope.row)">{{
+                                    $t('download.add_to_task') }}</el-button>
                             </div>
                         </template>
                     </el-table-column>
                 </el-table>
+                <div class="loadMore">
+                    <el-button :loading="ajaxWorking" @click="search(true)">{{ $t('download.load_more') }}</el-button>
+                </div>
             </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
+import { Loading } from '@element-plus/icons-vue/dist/types';
 import { defineComponent } from 'vue';
 
 export default defineComponent({
@@ -100,6 +105,7 @@ export default defineComponent({
             searched: false,
             plugins: [] as Array<{ name: string, id: string, placeholder: string }>,
             list: [],
+            page: 1,
             ajaxWorking: false
         };
     },
@@ -133,20 +139,34 @@ export default defineComponent({
                 this.ajaxWorking = false;
             });
         },
-        search() {
+        search(loadMore = false) {
             if (this.ajaxWorking) {
                 return;
+            }
+
+            if (loadMore === true) {
+                this.page++;
+            } else {
+                this.page = 1;
             }
 
             this.ajaxWorking = true;
             this.searched = false;
             this.$g.http.send('/api/download/search', 'post', {
                 keyword: this.keyword,
+                page: this.page,
                 plugin_id: this.plugin_select,
             }).then((res) => {
                 //console.log('onLoad success', res);
                 if (res.status) {
-                    this.list = res.data;
+
+                    if (loadMore === true) {
+                        this.list = this.list.concat(res.data);
+                    } else {
+                        this.list = res.data;
+                    }
+
+                    //this.list = res.data;
                 } else {
                     this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
@@ -227,5 +247,31 @@ export default defineComponent({
         line-clamp: 2;
         -webkit-box-orient: vertical;
     }
+
+    .loadMore {
+        text-align: center;
+        padding: 30px 0;
+    }
+}
+</style>
+<style lang="scss">
+.download {
+    .el-dialog__body {
+        padding: 0 20px 20px 20px;
+    }
+
+    .el-dialog__header {
+        padding: 20px 20px 10px 20px;
+    }
+
+    .el-dialog__footer {
+        padding: 0 20px 20px 20px;
+    }
+
+    .el-dialog__headerbtn {
+        top: 15px;
+    }
+
+    .el-dialog__wrapper {}
 }
 </style>

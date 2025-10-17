@@ -6,12 +6,19 @@ class download {
     async search(req, res, helpers) {
         let keyword = req.body.keyword;
         let plugin_id = req.body.plugin_id;
+        let page = req.body.page;
 
         let plugin = helpers.plugin.getPlugin(plugin_id);
 
+        //判断page是否是数字
+        if (!Number.isInteger(page)) {
+            page = 1;
+        }
+
+
         if (plugin) {
             if (plugin?.type === "search") {
-                let data = await plugin.search(keyword);
+                let data = await plugin.search(keyword, page);
 
                 if (data.status === false) {
                     return { status: false, msg: data.msg }
@@ -54,7 +61,7 @@ class download {
                 }
 
                 //如果任务没有添加就添加到下载任务表
-                let ret = helpers.db_query.run('INSERT INTO download_task(update_start,update_library_id,search_plugin,type,name,search_result,status) VALUES(?,?,?,?,?,?,?)', [update_start,update_library_id, plugin_id, task_type, name, JSON.stringify(search_result), status]);
+                let ret = helpers.db_query.run('INSERT INTO download_task(update_start,update_library_id,search_plugin,type,name,search_result,status) VALUES(?,?,?,?,?,?,?)', [update_start, update_library_id, plugin_id, task_type, name, JSON.stringify(search_result), status]);
 
                 if (ret) {
                     //返回任务id

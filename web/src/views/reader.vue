@@ -28,13 +28,21 @@
             <div class="scroller" ref="scroller">
                 <div class="scroller_content">
                     <div class="image_box" v-for="item in items" v-if="plugin_content_type == 'image'">
+                        <!-- 
                         <el-image class="image" loading="lazy" :src="item" lazy>
                             <template #placeholder>
                                 <div class="image-slot">
                                     <div>iComic</div>
                                 </div>
                             </template>
-                        </el-image>
+                        </el-image> 
+                        -->
+                        <LazyImage 
+                            :src="item" 
+                            :placeholderHeight="'400px'" 
+                            :loadOffset="100" 
+                            :destroy-offset="100" 
+                        />
                     </div>
                     <div class="text_box" v-for="item in items" v-if="plugin_content_type == 'text'">
                         <div class="text" v-html="getBlockText(item)"></div>
@@ -75,6 +83,8 @@ import {
 </script>
 <script lang="ts">
 import { defineComponent } from 'vue';
+import LazyImage from '../components/LazyImage.vue';
+
 interface file_item {
     id: string,
     name: string,
@@ -92,6 +102,9 @@ interface page_list_item {
 
 export default defineComponent({
     name: 'reader',
+    components: {
+        LazyImage
+    },
     computed: {
         cascader_value: {
             get() {
@@ -404,7 +417,7 @@ export default defineComponent({
         top: 0;
         right: 0;
         bottom: 0;
-        
+
         .header {
             position: fixed;
             display: flex;
@@ -475,33 +488,6 @@ export default defineComponent({
                         //display: block; // 确保图片本身是块级元素
                         width: 100%;
                         height: auto;
-                    }
-
-                    :deep(.el-image__wrapper) {
-                        position: relative;
-                        display: block;
-                        margin: 0; // 清除默认外边距
-                        padding: 0; // 清除默认内边距
-                        line-height: 10px;
-                    }
-
-                    :deep(.el-image__inner.is-loading) {
-                        display: inline-block;
-                    }
-
-                    .image-slot {
-                        color: #bbb;
-                        font-size: 42px;
-                        font-weight: bold;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        width: 100%;
-                        height: 400px;
-                        background-color: rgba(0, 0, 0, 0.1);
-                        margin-top: 0;
-                        padding-top: 0;
-                        border-top: 1px solid rgba(0, 0, 0, 0.1);
                     }
                 }
 
@@ -578,7 +564,7 @@ export default defineComponent({
     }
 
     &.read_mode {
-        .scroller{
+        .scroller {
             background-color: #fcfcfc;
             color: black;
         }

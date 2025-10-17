@@ -75,7 +75,7 @@ class SearchPlugin extends BasePlugin {
   }
 
   // 搜索方法
-  async search(query) {
+  async search(query, page) {
     throw new Error('Not implemented');
   }
 

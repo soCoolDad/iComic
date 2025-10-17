@@ -34,6 +34,7 @@ class ChineseLanguagePlugin extends LanguagePlugin {
                 col_description: "简介",
                 add_to_col: "操作",
                 add_to_task: "添加",
+                load_more: "加载更多",
             },
             reader: {
                 loading_title: "加载中",

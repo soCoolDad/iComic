@@ -34,6 +34,7 @@ class EnglishLanguagePlugin extends LanguagePlugin {
                 col_description: "Description",
                 add_to_col: "Operation",
                 add_to_task: "Add",
+                load_more: "Load more",
             },
             reader: {
                 loading_title: "Loading",
