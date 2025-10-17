@@ -40,8 +40,8 @@
                         <LazyImage 
                             :src="item" 
                             :placeholderHeight="'400px'" 
-                            :loadOffset="100" 
-                            :destroy-offset="100" 
+                            :loadOffset="600" 
+                            :destroy-offset="600" 
                         />
                     </div>
                     <div class="text_box" v-for="item in items" v-if="plugin_content_type == 'text'">
@@ -458,7 +458,7 @@ export default defineComponent({
         }
 
         .scroller {
-            position: absolute;
+            position: static;
             left: 0;
             top: 0;
             right: 0;
