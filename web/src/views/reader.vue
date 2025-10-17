@@ -340,8 +340,9 @@ export default defineComponent({
             });
 
             //console.log('image_urls', image_urls);
-
-            this.items = image_urls;
+            this.$nextTick(() => {
+                this.items = image_urls;
+            });
 
             // 滚动到顶部
             btn_scrollTop && this.$nextTick(() => {
