@@ -1,3 +1,4 @@
+<!-- lazyImage.vue -->
 <template>
     <div class="lazy-image-container" :style="{ 'min-height': containerHeight }">
         <!-- 占位符/加载状态 -->
@@ -67,11 +68,18 @@ export default {
             loadError: false,
             containerHeight: this.placeholderHeight,
             currentSrc: '',
+            // 图片原始尺寸
+            naturalWidth: 0,
+            naturalHeight: 0,
             // 兼容性检测
             isIntersectionObserverSupported: typeof window !== 'undefined' && 'IntersectionObserver' in window,
             // 用于滚动监听的变量
             scrollHandler: null,
-            resizeHandler: null
+            resizeHandler: null,
+            // 跟踪是否已经加载过
+            hasBeenLoaded: false,
+            // 用于IntersectionObserver的标识
+            isIntersecting: false
         }
     },
     mounted() {
@@ -97,6 +105,11 @@ export default {
             } else {
                 this.removeScrollListener()
             }
+            
+            // 清理定时检查器
+            if (this.visibilityCheckTimer) {
+                clearInterval(this.visibilityCheckTimer)
+            }
         },
 
         initIntersectionObserver() {
@@ -107,8 +120,16 @@ export default {
 
             this.observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        this.loadImage()
+                    // 更新相交状态
+                    if (entry.target === this.$el) {
+                        this.isIntersecting = entry.isIntersecting
+                        
+                        if (entry.isIntersecting) {
+                            this.loadImage()
+                        } else {
+                            // 启动延迟销毁检查
+                            this.scheduleDestroyCheck()
+                        }
                     }
                 })
             }, options)
@@ -128,6 +149,11 @@ export default {
             this.$nextTick(() => {
                 this.checkElementInViewport()
             })
+            
+            // 定时检查元素可见性
+            this.visibilityCheckTimer = setInterval(() => {
+                this.checkElementInViewport()
+            }, 1000)
         },
 
         removeScrollListener() {
@@ -137,10 +163,13 @@ export default {
             if (this.resizeHandler) {
                 window.removeEventListener('resize', this.resizeHandler)
             }
+            if (this.visibilityCheckTimer) {
+                clearInterval(this.visibilityCheckTimer)
+            }
         },
 
         checkElementInViewport() {
-            if (!this.$el || this.loaded || this.loading) return
+            if (!this.$el) return
 
             const rect = this.$el.getBoundingClientRect()
             const windowHeight = window.innerHeight || document.documentElement.clientHeight
@@ -156,10 +185,31 @@ export default {
 
             if (isNearViewport) {
                 this.loadImage()
+            } else {
+                // 启动延迟销毁检查
+                this.scheduleDestroyCheck()
             }
         },
 
+        // 延迟检查是否需要销毁图片
+        scheduleDestroyCheck() {
+            // 清除之前的定时器
+            if (this.destroyCheckTimer) {
+                clearTimeout(this.destroyCheckTimer)
+            }
+            
+            // 设置新的定时器，在destroyOffset毫秒后检查是否需要销毁
+            this.destroyCheckTimer = setTimeout(() => {
+                this.destroyImageIfNeeded()
+            }, this.destroyOffset)
+        },
+
         loadImage() {
+            // 清除销毁检查定时器
+            if (this.destroyCheckTimer) {
+                clearTimeout(this.destroyCheckTimer)
+            }
+            
             if (this.loaded || this.loading) return
 
             this.loading = true
@@ -171,14 +221,73 @@ export default {
             this.loading = false
             this.loaded = true
             this.loadError = false
+            this.hasBeenLoaded = true
 
-            // 获取图片实际尺寸并调整容器高度
+            // 获取图片原始尺寸
             const img = event.target
-            if (img.naturalHeight > 0) {
-                this.containerHeight = `${img.naturalHeight / 2 }px`
-            }
+            this.naturalWidth = img.naturalWidth
+            this.naturalHeight = img.naturalHeight
+
+            // 根据容器宽度动态计算高度
+            this.calculateContainerHeight()
 
             this.$emit('load', img)
+        },
+
+        // 根据容器宽度动态计算containerHeight
+        calculateContainerHeight() {
+            if (this.naturalWidth > 0 && this.naturalHeight > 0) {
+                // 获取容器实际宽度
+                const containerWidth = this.$el ? this.$el.clientWidth : 0
+                
+                if (containerWidth > 0) {
+                    // 根据宽高比计算高度
+                    const aspectRatio = this.naturalHeight / this.naturalWidth
+                    const calculatedHeight = containerWidth * aspectRatio
+                    this.containerHeight = `${calculatedHeight}px`
+                }
+            }
+        },
+
+        // 完善图片销毁逻辑
+        destroyImageIfNeeded() {
+            let shouldDestroy = false
+            
+            if (this.isIntersectionObserverSupported) {
+                // 使用IntersectionObserver的情况
+                shouldDestroy = !this.isIntersecting
+            } else if (this.$el) {
+                // 使用滚动监听的情况
+                const rect = this.$el.getBoundingClientRect()
+                const windowHeight = window.innerHeight || document.documentElement.clientHeight
+                
+                // 判断是否远离视图（超过destroyOffset范围）
+                shouldDestroy = (
+                    rect.top > windowHeight + this.destroyOffset ||
+                    rect.bottom < -this.destroyOffset
+                )
+            }
+            
+            // 执行销毁动作（只有当图片已经被加载过才销毁）
+            if (shouldDestroy && this.hasBeenLoaded) {
+                this.destroyImage()
+            }
+        },
+
+        // 销毁图片资源
+        destroyImage() {
+            // 只有在已加载状态下才执行销毁
+            if (!this.hasBeenLoaded) return;
+            
+            this.loaded = false
+            this.loading = false
+            this.currentSrc = ''
+            //保留占位高度，不去除；
+            //this.containerHeight = this.placeholderHeight; // 如果需要还原占位高度，可以取消这行注释
+            this.naturalWidth = 0
+            this.naturalHeight = 0
+
+            //console.log('destroyImage');
         },
 
         onImageError() {
