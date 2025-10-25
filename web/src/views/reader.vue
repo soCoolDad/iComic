@@ -28,20 +28,11 @@
             <div class="scroller" ref="scroller">
                 <div class="scroller_content">
                     <div class="image_box" v-for="item in items" v-if="plugin_content_type == 'image'">
-                        <!-- 
-                        <el-image class="image" loading="lazy" :src="item" lazy>
-                            <template #placeholder>
-                                <div class="image-slot">
-                                    <div>iComic</div>
-                                </div>
-                            </template>
-                        </el-image> 
-                        -->
                         <LazyImage 
                             :src="item" 
                             :placeholderHeight="'400px'" 
-                            :loadOffset="600" 
-                            :destroy-offset="600" 
+                            :loadOffset="300" 
+                            :destroy-offset="200" 
                         />
                     </div>
                     <div class="text_box" v-for="item in items" v-if="plugin_content_type == 'text'">
