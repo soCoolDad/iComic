@@ -595,8 +595,12 @@ class download_task {
 
                                 for (const entry of Object.values(entries)) {
                                     if (entry.isFile) {
-                                        let fileBuffer = await read_zip.entryData(entry.name);
-                                        part_zip.addBuffer(fileBuffer, entry.name);
+                                        try {
+                                            let fileBuffer = await read_zip.entryData(entry.name);
+                                            part_zip.addBuffer(fileBuffer, entry.name);    
+                                        } catch (error) {
+                                            console.error(`Error reading file ${entry.name} from ${zipPath}: ${error}`);
+                                        }
                                     }
                                 }
                             } finally {
