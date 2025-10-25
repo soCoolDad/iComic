@@ -27,28 +27,14 @@
             <!-- 虚拟滚动开始 -->
             <div class="scroller" ref="scroller">
                 <div class="scroller_content">
-                    <!-- 使用虚拟滚动 -->
-                    <VirtualScroller 
-                        v-if="plugin_content_type == 'image'" 
-                        ref="virtualScroller"
-                        :items="items" 
-                        :itemHeight="400"
-                        :bufferSize="5"
-                    >
-                        <template #default="{ item, index }">
-                            <div class="image_box">
-                                <LazyImage 
-                                    :src="item" 
-                                    :placeholderHeight="'400px'" 
-                                    :loadOffset="0" 
-                                    :destroy-offset="0"
-                                    :directLoad = "true"
-                                    @load="(img) => onImageLoad(index, img)"
-                                />
-                            </div>
-                        </template>
-                    </VirtualScroller>
-
+                    <div class="image_box" v-for="item in items" v-if="plugin_content_type == 'image'">
+                        <LazyImage 
+                            :src="item" 
+                            :placeholderHeight="'400px'" 
+                            :loadOffset="300" 
+                            :destroy-offset="200" 
+                        />
+                    </div>
                     <div class="text_box" v-for="item in items" v-if="plugin_content_type == 'text'">
                         <div class="text" v-html="getBlockText(item)"></div>
                     </div>
@@ -89,8 +75,6 @@ import {
 <script lang="ts">
 import { defineComponent } from 'vue';
 import LazyImage from '../components/lazyImage.vue';
-//import type VirtualScroller from '../components/VirtualScroller.vue';
-import VirtualScroller from '../components/VirtualScroller.vue';
 
 interface file_item {
     id: string,
@@ -110,8 +94,7 @@ interface page_list_item {
 export default defineComponent({
     name: 'reader',
     components: {
-        LazyImage,
-        VirtualScroller
+        LazyImage
     },
     computed: {
         cascader_value: {
@@ -169,7 +152,7 @@ export default defineComponent({
     },
     watch: {
         chapter_index(newVal) {
-            //console.log("change page", newVal);
+            console.log("change page", newVal);
             this.send_read_progress(newVal);
         }
     },
@@ -397,17 +380,6 @@ export default defineComponent({
             //console.log("change page", this.chapter_index);
             //this.chapter_index = this.chapter_index;
             this.initItems();
-        },
-        // 添加图片加载完成的处理函数
-        onImageLoad(index, img) {
-            // 获取图片实际高度并更新到虚拟滚动组件
-            if (this.$refs.virtualScroller) {
-                this.$nextTick(() => {
-                    //忽略该错误
-                    //console.log("img.calcedHeight", img.calcedHeight);
-                    (this.$refs.virtualScroller as any).updateItemHeight(index, img.calcedHeight);
-                });
-            }
         }
     }
 });
@@ -432,7 +404,7 @@ export default defineComponent({
     }
 
     .reader_box {
-        position: fixed;
+        position: absolute;
         left: 0;
         top: 0;
         right: 0;
@@ -478,7 +450,7 @@ export default defineComponent({
         }
 
         .scroller {
-            position: absolute;
+            position: static;
             left: 0;
             top: 0;
             right: 0;
@@ -487,12 +459,10 @@ export default defineComponent({
             overflow: auto;
             transition: padding 0.2s ease-in-out;
             background-color: rgba(255, 255, 255, 1);
-            box-sizing: border-box;
+
             .scroller_content {
                 max-width: 600px;
                 margin: 0 auto;
-                position: relative;
-                height: 100%;
 
                 .image_box {
                     height: 100%;
