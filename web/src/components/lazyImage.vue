@@ -2,33 +2,18 @@
 <template>
     <div class="lazy-image-container" :style="{ 'min-height': containerHeight }">
         <!-- 占位符/加载状态 -->
-        <div 
-            v-if="!loaded && !loadError" 
-            class="image-placeholder" 
-            :style="{ 'min-height': containerHeight }"
-        >
+        <div v-if="!loaded && !loadError" class="image-placeholder" :style="{ 'min-height': containerHeight }">
             <div class="loading-spinner" v-if="loading"></div>
         </div>
 
         <!-- 加载失败状态 -->
-        <div 
-            v-if="loadError" class="error-placeholder" 
-            :style="{ 'min-height': containerHeight }" 
-            @click="retryLoad"
-        >
+        <div v-if="loadError" class="error-placeholder" :style="{ 'min-height': containerHeight }" @click="retryLoad">
             <span>点击重试</span>
         </div>
 
         <!-- 实际图片 -->
-        <img 
-            v-show="loaded" 
-            ref="imageRef" 
-            :src="currentSrc" 
-            :alt="alt" 
-            @load="onImageLoad" 
-            @error="onImageError"
-            class="lazy-image" 
-        />
+        <img v-show="loaded" ref="imageRef" :src="currentSrc" :alt="alt" @load="onImageLoad" @error="onImageError"
+            class="lazy-image" />
     </div>
 </template>
 
@@ -58,6 +43,11 @@ export default {
         destroyOffset: {
             type: Number,
             default: 200
+        },
+        // 直接显示图片
+        directLoad: {
+            type: Boolean,
+            default: false
         }
     },
     data() {
@@ -66,6 +56,7 @@ export default {
             loading: false,
             loadError: false,
             containerHeight: this.placeholderHeight,
+            calcedHeight: 0,
             currentSrc: '',
             // 图片原始尺寸
             naturalWidth: 0,
@@ -89,7 +80,9 @@ export default {
     },
     methods: {
         initLazyLoad() {
-            if (this.isIntersectionObserverSupported) {
+            if (this.directLoad) {
+                this.loadImage()
+            } else if (this.isIntersectionObserverSupported) {
                 this.initIntersectionObserver()
             } else {
                 this.initScrollListener()
@@ -152,7 +145,7 @@ export default {
             // 定时检查元素可见性
             this.visibilityCheckTimer = setInterval(() => {
                 this.checkElementInViewport()
-            }, 1000)
+            }, 500)
         },
 
         removeScrollListener() {
@@ -235,6 +228,8 @@ export default {
             // 根据容器宽度动态计算高度
             this.calculateContainerHeight()
 
+            img.calcedHeight = this.calcedHeight;
+
             this.$emit('load', img)
         },
 
@@ -249,6 +244,7 @@ export default {
                     const aspectRatio = this.naturalHeight / this.naturalWidth
                     const calculatedHeight = containerWidth * aspectRatio
                     this.containerHeight = `${calculatedHeight}px`
+                    this.calcedHeight = calculatedHeight;
                 }
             }
         },
