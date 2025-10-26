@@ -242,7 +242,7 @@ export default {
                 if (containerWidth > 0) {
                     // 根据宽高比计算高度
                     const aspectRatio = this.naturalHeight / this.naturalWidth
-                    const calculatedHeight = containerWidth * aspectRatio
+                    const calculatedHeight = Math.floor(containerWidth * aspectRatio);
                     this.containerHeight = `${calculatedHeight}px`
                     this.calcedHeight = calculatedHeight;
                 }
