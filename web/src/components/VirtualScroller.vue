@@ -85,8 +85,11 @@ export default {
         items: {
             handler(newItems, oldItems) {
                 // 当items变化时，更新高度数组
-                if (newItems.length !== oldItems.length) {
-                    this.itemHeights = new Array(newItems.length).fill(this.estimatedHeight);
+                this.itemHeights = new Array(newItems.length).fill(this.estimatedHeight);
+
+                if(this.$refs.scroller){
+                    this.scrollTop = 0;
+                    this.$refs.scroller.scrollTop = 0;
                 }
             }
         }

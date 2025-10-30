@@ -25,7 +25,7 @@
                 </el-page-header>
             </div>
             <!-- 虚拟滚动开始 -->
-            <div class="scroller" ref="scroller">
+            <div class="scroller">
                 <div class="scroller_content">
                     <!-- 使用虚拟滚动 -->
                     <VirtualScroller 
@@ -40,8 +40,8 @@
                                 <LazyImage 
                                     :src="item" 
                                     :placeholderHeight="'400px'" 
-                                    :loadOffset="0" 
-                                    :destroy-offset="0"
+                                    :loadOffset="400" 
+                                    :destroy-offset="400"
                                     :directLoad = "true"
                                     @load="(img) => onImageLoad(index, img)"
                                 />
@@ -352,16 +352,16 @@ export default defineComponent({
                 this.items = image_urls;
             });
 
-            // 滚动到顶部
-            btn_scrollTop && this.$nextTick(() => {
-                const scroller = this.$refs.scroller;
+            // // 滚动到顶部
+            // btn_scrollTop && this.$nextTick(() => {
+            //     const scroller = this.$refs.scroller;
 
-                if (scroller) {
-                    (scroller as any).scroll(0, 0); // 直接操作DOM作为备选方案
-                }
+            //     if (scroller) {
+            //         (scroller as any).scroll(0, 0); // 直接操作DOM作为备选方案
+            //     }
 
-                window.scrollTo(0, 0);
-            });
+            //     window.scrollTo(0, 0);
+            // });
         },
         handlePrev() {
             let chapter_index = this.chapter_index - 1;
