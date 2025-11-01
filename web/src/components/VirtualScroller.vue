@@ -87,10 +87,13 @@ export default {
                 // 当items变化时，更新高度数组
                 this.itemHeights = new Array(newItems.length).fill(this.estimatedHeight);
 
-                if(this.$refs.scroller){
-                    this.scrollTop = 0;
-                    this.$refs.scroller.scrollTop = 0;
-                }
+                // 使用setTimeout确保滚动位置被重置
+                setTimeout(() => {
+                    if (this.$refs.scroller) {
+                        this.scrollTop = 0;
+                        this.$refs.scroller.scrollTop = 0;
+                    }
+                }, 0);
             }
         }
     },
