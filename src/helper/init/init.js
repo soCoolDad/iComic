@@ -3,15 +3,13 @@ const path = require('path')
 const Database = require('better-sqlite3')
 
 class init {
-    constructor() { }
-
     check(inDbDir) {
         /**
          * 0: 不存在
          * 1: 存在但无用户
          * 2: 存在且有用户
          */
-        const dbDir = path.join(__dirname, inDbDir)
+        const dbDir = inDbDir
         const dbFile = path.join(dbDir, 'data.db')
         // 检查 /db 目录和数据库文件是否存在
         if (!fs.existsSync(dbDir) || !fs.existsSync(dbFile)) {
@@ -46,7 +44,6 @@ class init {
      * @param {string} [dbDir] 可选，数据库目录，默认 '../../../db'
      */
     init(dbDir) {
-        dbDir = dbDir
         const dbFile = path.join(dbDir, 'data.db')
         // 创建目录
 
@@ -59,6 +56,10 @@ class init {
         }
         // 创建数据库
         const db = new Database(dbFile)
+        // 配置数据库优化
+        db.pragma('journal_mode = WAL')
+        db.pragma('foreign_keys = ON')
+        db.pragma('synchronous = NORMAL')
         // 创建表
         db.exec(`
             CREATE TABLE IF NOT EXISTS tag (
@@ -101,13 +102,41 @@ class init {
                 page_count INTEGER DEFAULT 0,
                 page_complete_count INTEGER DEFAULT 0,
                 page_fail_count INTEGER DEFAULT 0,
-
                 current_page_count INTEGER DEFAULT 0,
                 current_page_complete_count INTEGER DEFAULT 0,
-                current_page_fail_count INTEGER DEFAULT 0
+                current_page_fail_count INTEGER DEFAULT 0,
+                book_meta TEXT,
+                downloaded_pages TEXT,
+                is_complete INTEGER DEFAULT 0
             );
         `)
         db.close()
+    }
+
+    /**
+     * 增量迁移：为已有数据库补齐按需下载字段（幂等，每次启动都执行）
+     * @param {string} dbDir 数据库目录
+     */
+    migrate(dbDir) {
+        const dbFile = path.join(dbDir, 'data.db')
+        if (!dbDir || !fs.existsSync(dbFile)) {
+            return
+        }
+        const db = new Database(dbFile)
+        try {
+            const colNames = db.prepare("PRAGMA table_info(download_task)").all().map(c => c.name);
+            if (!colNames.includes('book_meta')) {
+                db.exec("ALTER TABLE download_task ADD COLUMN book_meta TEXT");
+            }
+            if (!colNames.includes('downloaded_pages')) {
+                db.exec("ALTER TABLE download_task ADD COLUMN downloaded_pages TEXT");
+            }
+            if (!colNames.includes('is_complete')) {
+                db.exec("ALTER TABLE download_task ADD COLUMN is_complete INTEGER DEFAULT 0");
+            }
+        } finally {
+            db.close()
+        }
     }
 }
 

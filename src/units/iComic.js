@@ -54,7 +54,9 @@ class iComic_http {
     // 通过url发送POST请求
     async post(url, headers, data) {
         return new Promise((resolve, reject) => {
+            let req = null;
             const timeout = setTimeout(() => {
+                if (req) req.destroy();
                 reject(new Error(`[http] 请求超时: ${url}`));
             }, this.timeout);
 
@@ -129,7 +131,7 @@ class iComic_http {
                 //console.log("options", options);
 
                 // 创建请求
-                const req = httpModule.request(options, (res) => {
+                req = httpModule.request(options, (res) => {
                     let responseBody = [];
 
                     res.on('data', (chunk) => {
@@ -169,7 +171,9 @@ class iComic_http {
 
     async get(url, headers) {
         return new Promise((resolve, reject) => {
+            let req = null;
             const timeout = setTimeout(() => {
+                if (req) req.destroy();
                 reject(new Error(`[http] 请求超时: ${url}`));
             }, this.timeout);
 
@@ -207,7 +211,7 @@ class iComic_http {
                     agent
                 };
 
-                const req = httpModule.get(options, (res) => {
+                req = httpModule.get(options, (res) => {
                     // 根据 content-type 判断是否为二进制
                     // console.log("res:", url, res.headers);
                     // 二进制数组用来存储返回的二进制数据
@@ -262,7 +266,8 @@ class iComic_html {
             // 返回匹配到的DOM元素文本内容或属性，也可以封装为对象形式
             return elements.toArray().map(el => ({
                 text: $(el).text(),
-                html: $(el).html()
+                html: $(el).html(),
+                attr: (name) => $(el).attr(name)
             }));
         } catch (error) {
             console.error('HTML解析失败:', error.message);

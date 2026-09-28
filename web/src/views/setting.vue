@@ -204,6 +204,7 @@ export default defineComponent({
             });
         },
         getAllLang() {
+            this.ajaxWorking = true;
             this.$g.http.send('/api/setting/getAllLang', 'get').then((res) => {
                 if (res.status) {
                     this.langs = (res.data || []).map((item) => {
@@ -216,7 +217,7 @@ export default defineComponent({
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
             }).finally(() => {
-                this.getCacheSizeWorking = false;
+                this.ajaxWorking = false;
             });
         },
         getCacheSize() {

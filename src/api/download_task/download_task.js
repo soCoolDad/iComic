@@ -1,46 +1,117 @@
+const fs = require('fs');
+
 class download_task {
-    constructor() {
-
-    }
-
     getAllTasks(req, res, helpers) {
-        //
-        let result = helpers.download.getAllTasks();
-
-        //console.log("result",result);
-
-        return result;
+        return helpers.download.getAllTasks();
     }
-    // 开始
+
     begin(req, res, helpers) {
-        //
         let task_id = req.body.task_id;
-        let result = helpers.download.begin(task_id);
-
-        return result;
+        return helpers.download.begin(task_id);
     }
 
-    //暂停
     pause(req, res, helpers) {
-        //
         let task_id = req.body.task_id;
-        let result = helpers.download.pause(task_id);
-
-        return result;
+        return helpers.download.pause(task_id);
     }
 
-    //删除
-    delete(req, res, helpers) {
-        //
+    async delete(req, res, helpers) {
         let task_id = req.body.task_id;
+        let task = helpers.download.getTask(task_id);
+        if (task) {
+            task.clearPartCache();
+        }
         let result = helpers.download.delete(task_id);
 
-        if(result?.status){
-            //删除记录
-            helpers.db_query.run('DELETE FROM download_task WHERE id=?', [task_id]);
+        if (result?.status) {
+            // 清理按需任务的临时分片目录（已合并的 CBZ 属于库文件，保留）
+            if (task && task.type == 2 && task.tmp_dir && fs.existsSync(task.tmp_dir)) {
+                try { fs.rmSync(task.tmp_dir, { recursive: true, force: true }); } catch (e) { }
+            }
+            await helpers.db_query.run('DELETE FROM download_task WHERE id=?', [task_id]);
         }
 
         return result;
+    }
+
+    async downloadPage(req, res, helpers) {
+        let task_id = req.body.task_id;
+        let page = Number(req.body.page);
+        let task = helpers.download.getTask(task_id);
+
+        if (!task) {
+            return { status: false, msg: "server.no_task" };
+        }
+
+        if (task.type != 2) {
+            return { status: false, msg: "server.not_on_demand" };
+        }
+
+        if (!task.book_meta) {
+            return { status: false, msg: "server.book_meta_not_ready" };
+        }
+
+        return await task.downloadSinglePage(page);
+    }
+
+    async getPageStatus(req, res, helpers) {
+        let task_id = req.query.task_id;
+        let task = helpers.download.getTask(task_id);
+
+        if (!task) {
+            return { status: false, msg: "server.no_task" };
+        }
+
+        return await task.getPageStatus();
+    }
+
+    async getCover(req, res, helpers) {
+        let task_id = req.query.task_id;
+        let task = helpers.download.getTask(task_id);
+
+        if (!task) {
+            return { status: false, msg: "server.no_task" };
+        }
+
+        // 普通任务开始下载后也会有 0.part 封面；没有时返回 no_file 由前端占位
+        return await task.getCoverFromPart();
+    }
+
+    async getBlock(req, res, helpers) {
+        let task_id = req.query.task_id;
+        let page = Number(req.query.page);
+        let block = Number(req.query.block);
+        let task = helpers.download.getTask(task_id);
+
+        if (!task) {
+            return { status: false, msg: "server.no_task" };
+        }
+
+        return await task.getBlockFromPart(page, block);
+    }
+
+    async prefetch(req, res, helpers) {
+        let task_id = req.body.task_id;
+        let pages = req.body.pages || [];
+        let task = helpers.download.getTask(task_id);
+
+        if (!task) {
+            return { status: false, msg: "server.no_task" };
+        }
+
+        if (task.type != 2 || !task.book_meta) {
+            return { status: false, msg: "server.not_on_demand" };
+        }
+
+        // 加入任务内的串行队列后台下载，不阻塞，避免并发打爆源站
+        let queued = 0;
+        for (let p of pages) {
+            p = Number(p);
+            if (!Number.isInteger(p) || p < 0 || p >= task.book_meta.page_count) continue;
+            if (task.queuePageDownload(p)) queued++;
+        }
+
+        return { status: true, msg: "server.prefetch_started", i18n: { count: queued }, data: { pages: queued } };
     }
 }
 

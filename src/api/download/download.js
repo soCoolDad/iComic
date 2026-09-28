@@ -1,8 +1,4 @@
 class download {
-    constructor() {
-
-    }
-
     async search(req, res, helpers) {
         let keyword = req.body.keyword;
         let plugin_id = req.body.plugin_id;
@@ -64,8 +60,6 @@ class download {
                 let ret = helpers.db_query.run('INSERT INTO download_task(update_start,update_library_id,search_plugin,type,name,search_result,status) VALUES(?,?,?,?,?,?,?)', [update_start, update_library_id, plugin_id, task_type, name, JSON.stringify(search_result), status]);
 
                 if (ret) {
-                    //返回任务id
-                    //console.log("add ret", ret);
                     let result = helpers.download.add(ret.lastInsertRowid);
 
                     return { status: result.status, data: { id: ret.lastInsertRowid }, msg: result.msg }
@@ -78,6 +72,41 @@ class download {
         } else {
             return { status: false, msg: "server.no_plugin" }
         }
+    }
+
+    addOnDemand(req, res, helpers) {
+        let plugin_id = req.body.plugin_id;
+        let name = req.body.name;
+        let search_result = req.body.search_result;
+
+        let plugin = helpers.plugin.getPlugin(plugin_id);
+
+        if (!name) {
+            name = search_result.title;
+        }
+
+        if (plugin && plugin?.type === "search") {
+            let task = helpers.db_query.get('SELECT * FROM download_task WHERE search_plugin = ? AND name = ?', [plugin_id, name]);
+
+            if (task) {
+                // 返回已存在任务的类型，前端可据此直接打开已有的按需任务
+                return { status: false, data: { id: task.id, type: task.type }, msg: "server.task_has" };
+            }
+
+            let ret = helpers.db_query.run(
+                'INSERT INTO download_task(search_plugin,type,name,search_result,status) VALUES(?,?,?,?,?)',
+                [plugin_id, 2, name, JSON.stringify(search_result), 0]
+            );
+
+            if (ret) {
+                let result = helpers.download.add(ret.lastInsertRowid);
+                return { status: result.status, data: { id: ret.lastInsertRowid }, msg: result.msg };
+            } else {
+                return { status: false, msg: "server.error" };
+            }
+        }
+
+        return { status: false, msg: plugin ? "server.plugin_cant_support_search" : "server.no_plugin" };
     }
 }
 

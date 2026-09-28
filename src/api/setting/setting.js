@@ -1,8 +1,7 @@
 const { iComicCtrl } = require('../../units/iComic.js');
-const { UpdateSystem } = require('../../units/update.js');
+const { UpdateSystem, compareVersions } = require('../../units/update.js');
 const path = require('path');
 const fs = require('fs');
-const { version } = require('os');
 const currentVersion = require('../../../package.json').version;
 class setting {
     config_path = "";
@@ -29,8 +28,8 @@ class setting {
     }
 
     readConfigToEnv() {
-        (this.config.COPT_TO_EVN).forEach(key => {
-            if (!this.config[key] == undefined) {
+        (this.config.COPT_TO_EVN || []).forEach(key => {
+            if (this.config[key] !== undefined) {
                 process.env[key] = this.config[key];
             }
         });
@@ -197,25 +196,6 @@ class setting {
     }
 
     /**
-     * 版本比较方法（不依赖第三方库）
-     * @param {string} v1 当前版本
-     * @param {string} v2 最新版本
-     * @returns {number} 1:需要更新 0:相同 -1:当前版本更高
-     */
-    compareVersions(v1, v2) {
-        const parts1 = v1.split('.').map(Number);
-        const parts2 = v2.split('.').map(Number);
-
-        for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-            const num1 = parts1[i] || 0;
-            const num2 = parts2[i] || 0;
-            if (num1 > num2) return -1;
-            if (num1 < num2) return 1;
-        }
-        return 0;
-    }
-
-    /**
      * 检查更新接口
      * @returns {
      *   status: boolean,
@@ -244,7 +224,7 @@ class setting {
 
             const latestRelease = JSON.parse(response.body);
             const latestVersion = (latestRelease?.tag_name || "0.0.0").replace(/^v/, '').trim();
-            const versionComparison = this.compareVersions(currentVersion, latestVersion);
+            const versionComparison = compareVersions(currentVersion, latestVersion);
 
             return {
                 status: true,

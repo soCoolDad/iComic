@@ -41,7 +41,7 @@ class library {
     */
     async scan(helpers) {
         // 1. 获取当前数据库中的所有文件记录
-        const existingRecords = helpers.db_query.all('SELECT path, config_path FROM library');
+        const existingRecords = helpers.db_query.all('SELECT id, path, config_path FROM library');
         const existingPaths = new Set(existingRecords.map(record => record.path));
         
         // 2. 扫描文件系统获取最新文件列表
@@ -64,8 +64,8 @@ class library {
             }
         }
 
-        // 3. 找出需要处理的文件（新增/更新）
-        const newOrUpdatedFiles = scanFiles.filter(file => {
+        // 3. 找出需要处理的文件（新增）
+        const newFiles = scanFiles.filter(file => {
             // 文件路径不存在于数据库 -> 新增
             if (!existingPaths.has(file.path)) return true;
 
@@ -78,45 +78,39 @@ class library {
                 !fs.existsSync(record.path); // 双重验证
         });
 
-        // 5. 处理新增/更新的文件
+        // 5. 处理新增的文件
         let addedCount = 0;
-        for (let file of newOrUpdatedFiles) {
+        for (let file of newFiles) {
             try {
                 const config = file.config;
-                const isNew = !existingPaths.has(file.path);
 
                 // 新增记录
-                if (isNew) {
-                    helpers.db_query.run(
-                        `INSERT INTO library (name, page_count, author, description, path, config_path, search_plugin, parse_plugin, status)
-                     VALUES (?, ?, ?, ?, ?, ?, ?,?, 0)`,
-                        [
-                            config?.name || path.basename(file.path),
-                            config?.page_count || 0,
-                            config?.author || '',
-                            config?.description || '',
-                            file.path,
-                            file.config_path,
-                            file.config.search_plugin,
-                            file.config.parse_plugin
-                        ]
-                    );
-                    addedCount++;
-                }
+                const ret = helpers.db_query.run(
+                    `INSERT INTO library (name, page_count, author, description, path, config_path, search_plugin, parse_plugin, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?,?, 0)`,
+                    [
+                        config?.name || path.basename(file.path),
+                        config?.page_count || 0,
+                        config?.author || '',
+                        config?.description || '',
+                        file.path,
+                        file.config_path,
+                        file.config.search_plugin,
+                        file.config.parse_plugin
+                    ]
+                );
+                const libraryId = ret.lastInsertRowid;
+                addedCount++;
 
-                // 处理标签（仅新增记录或配置更新时）
+                // 处理标签
                 if (config?.tags && Array.isArray(config.tags)) {
-                    const libraryId = isNew ?
-                        helpers.db_query.get('SELECT last_insert_rowid() as id').id :
-                        helpers.db_query.get('SELECT id FROM library WHERE path = ?', [file.path]).id;
-
                     for (const tagName of config.tags) {
                         if (!tagName) continue;
 
                         let tag = helpers.db_query.get('SELECT id FROM tag WHERE name = ?', [tagName]);
                         if (!tag) {
-                            helpers.db_query.run('INSERT INTO tag (name) VALUES (?)', [tagName]);
-                            tag = { id: helpers.db_query.get('SELECT last_insert_rowid() as id').id };
+                            const tagRet = helpers.db_query.run('INSERT INTO tag (name) VALUES (?)', [tagName]);
+                            tag = { id: tagRet.lastInsertRowid };
                         }
 
                         helpers.db_query.run(

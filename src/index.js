@@ -32,14 +32,59 @@ process.env.UPDATE_REPO = process.env.UPDATE_REPO || "soCoolDad/iComic";
 
 process.on('uncaughtException', (err) => {
     console.error('未捕获异常:', err);
+    helpers.db_query.close();
+    process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('未处理的Promise拒绝:', '原因:', reason, promise);
 });
 
-// Middleware to parse JSON bodies
-app.use(express.json());
+// 优雅关闭：关闭数据库连接防止 better-sqlite3 GC 崩溃
+process.on('SIGINT', () => {
+    helpers.db_query.close();
+    process.exit(0);
+});
+process.on('SIGTERM', () => {
+    helpers.db_query.close();
+    process.exit(0);
+});
+process.on('beforeExit', () => {
+    helpers.db_query.close();
+});
+
+// Middleware to parse JSON bodies (with size limit)
+app.use(express.json({ limit: '10mb' }));
+
+// CORS middleware (support reverse proxy and cross-origin)
+app.use((req, res, next) => {
+    const allowedOrigins = process.env.ICOMIC_CORS_ORIGINS || '*';
+    const origin = req.headers.origin;
+    if (allowedOrigins === '*' || (origin && allowedOrigins.split(',').map(s => s.trim()).includes(origin))) {
+        res.setHeader('Access-Control-Allow-Origin', origin || '*');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+        res.setHeader('Access-Control-Max-Age', '86400');
+    }
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(204);
+    }
+    next();
+});
+
+// Optional API key authentication (enabled when ICOMIC_API_KEY is set)
+app.use((req, res, next) => {
+    const apiKey = process.env.ICOMIC_API_KEY;
+    if (!apiKey) return next();
+    if (req.path.startsWith('/api/') && req.method !== 'OPTIONS') {
+        const providedKey = req.headers['x-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
+        if (providedKey !== apiKey) {
+            return res.status(401).json({ status: false, msg: 'Unauthorized: invalid API key' });
+        }
+    }
+    next();
+});
 
 // 初始化数据库
 let dbDir = path.join(configDir, "db");
@@ -59,6 +104,8 @@ if (helpers.init.check(dbDir) === 0) {
     }
 }
 helpers.db_query.init(dbDir);
+// 无条件执行增量迁移（老库补齐按需下载字段）
+helpers.init.migrate(dbDir);
 console.log("init", "db dir:", dbDir);
 
 //初始化 setting
@@ -110,7 +157,7 @@ app.all('/api/:module/:method', async (req, res) => {
                     let str = Buffer.from(result.data).toString('utf-8');
                     res.json({ status: true, data: str });
                     return;
-                } else if (typeof result === 'object' && result.status !== "undefined") {
+                } else if (typeof result === 'object' && result.status !== undefined) {
                     res.json(result)
                     return;
                 }
@@ -135,7 +182,7 @@ if (fs.existsSync(path.join(web_build_dir, "index.html"))) {
     app.use(express.static(web_build_dir));
 
     // 返回 index.html
-    app.get('*', (req, res) => {
+    app.get('/*', (req, res) => {
         res.sendFile(path.join(web_build_dir, 'index.html'));
     });
 

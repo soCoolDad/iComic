@@ -196,7 +196,7 @@ class library {
             }
         }
 
-        if (!read_page_progress === undefined) {
+        if (read_page_progress === undefined || read_page_progress === null) {
             return {
                 status: false,
                 msg: "server.param_error",

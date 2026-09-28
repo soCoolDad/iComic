@@ -16,5 +16,6 @@
         "UPDATE_REPO",
         "GITHUB_PAT",
         "ICOMIC_HTTP_PROXY"
-    ]
+    ],
+    "version": "0.0.46"
 }

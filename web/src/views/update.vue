@@ -18,15 +18,17 @@
                         </div>
                     </template>
                 </el-table-column>
-                <el-table-column :label="$t('download_task.col_action')">
+                <el-table-column :label="$t('download_task.col_action')" width="110">
                     <template #default="scope">
                         <div class="downloadBtnBox">
-                            <el-button v-if="scope.row.update_count == 0" type="primary" :loading="ajaxWorking"
-                                @click="handleDownload_check(scope.row)">{{
-                                    $t('setting.check_new') }}</el-button>
-                            <el-button v-if="scope.row.update_count > 0" type="danger" :loading="ajaxWorking"
-                                @click="showUpdatePanel(scope.row)">{{
-                                    $t('setting.update') }}</el-button>
+                            <el-tooltip :content="$t('setting.check_new')" placement="top">
+                                <el-button v-if="scope.row.update_count == 0" circle type="primary" :icon="Refresh"
+                                    :loading="ajaxWorking" @click="handleDownload_check(scope.row)" />
+                            </el-tooltip>
+                            <el-tooltip :content="$t('setting.update')" placement="top">
+                                <el-button v-if="scope.row.update_count > 0" circle type="danger" :icon="Upload"
+                                    :loading="ajaxWorking" @click="showUpdatePanel(scope.row)" />
+                            </el-tooltip>
                         </div>
                     </template>
                 </el-table-column>
@@ -61,6 +63,12 @@
         </div>
     </div>
 </template>
+<script lang="ts" setup>
+import {
+    Refresh,
+    Upload
+} from '@element-plus/icons-vue';
+</script>
 <script lang="ts">
 import { defineComponent } from 'vue';
 export default defineComponent({
@@ -184,6 +192,17 @@ export default defineComponent({
 
     h1.title {
         font-size: 24px;
+    }
+
+    .downloadBtnBox {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: nowrap;
+
+        .el-button+.el-button {
+            margin-left: 8px;
+        }
     }
 
     .padding-top-10 {

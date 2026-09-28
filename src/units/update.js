@@ -47,6 +47,24 @@ function sha256File(filePath) {
     });
 }
 
+// 版本比较方法（不依赖第三方库）
+// @param {string} v1 当前版本
+// @param {string} v2 最新版本
+// @returns {number} 1:需要更新 0:相同 -1:当前版本更高
+function compareVersions(v1, v2) {
+    const parts1 = v1.split('.').map(Number);
+    const parts2 = v2.split('.').map(Number);
+
+    for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+        const num1 = parts1[i] || 0;
+        const num2 = parts2[i] || 0;
+        if (num1 > num2) return -1;
+        if (num1 < num2) return 1;
+    }
+
+    return 0;
+}
+
 class UpdateSystem {
     /**
      * 版本比较方法（不依赖第三方库）
@@ -55,17 +73,7 @@ class UpdateSystem {
      * @returns {number} 1:需要更新 0:相同 -1:当前版本更高
      */
     compareVersions(v1, v2) {
-        const parts1 = v1.split('.').map(Number);
-        const parts2 = v2.split('.').map(Number);
-
-        for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-            const num1 = parts1[i] || 0;
-            const num2 = parts2[i] || 0;
-            if (num1 > num2) return -1;
-            if (num1 < num2) return 1;
-        }
-
-        return 0;
+        return compareVersions(v1, v2);
     }
     // 检查GitHub releases
     async checkUpdate() {
@@ -95,10 +103,16 @@ class UpdateSystem {
     async createBackup() {
         await fs.ensureDir(CONFIG.backupDir);
 
-        // 清理旧备份
+        // 清理旧备份（按修改时间排序，删除最旧的）
         const backups = await fs.readdir(CONFIG.backupDir);
         if (backups.length >= CONFIG.maxBackups) {
-            await fs.remove(path.join(CONFIG.backupDir, backups[0]));
+            const backupInfos = await Promise.all(backups.map(async name => {
+                const fullPath = path.join(CONFIG.backupDir, name);
+                const stat = await fs.stat(fullPath);
+                return { name, fullPath, mtime: stat.mtime };
+            }));
+            backupInfos.sort((a, b) => a.mtime - b.mtime);
+            await fs.remove(backupInfos[0].fullPath);
         }
 
         const backupName = `backup_${new Date().toISOString()}.zip`;
@@ -126,11 +140,14 @@ class UpdateSystem {
 
         // 校验SHA256（可选）
         if (release.body.includes('SHA256')) {
-            const expectedHash = release.body.match(/SHA256:\s*(\w+)/)[1];
-            const actualHash = await sha256File(tempFile);
+            const match = release.body.match(/SHA256:\s*(\w+)/);
+            if (match && match[1]) {
+                const expectedHash = match[1];
+                const actualHash = await sha256File(tempFile);
 
-            if (expectedHash !== actualHash) {
-                throw new Error('文件校验失败');
+                if (expectedHash !== actualHash) {
+                    throw new Error('文件校验失败');
+                }
             }
         }
 
@@ -183,8 +200,6 @@ class UpdateSystem {
                 `${CONFIG.rootDir}/web/`
             ], CONFIG.rootDir);
 
-
-            //await runCommand('rsync', ['-a', `${sourceDir}/`, `${CONFIG.rootDir}/`], CONFIG.rootDir);
 
             console.log('update', '安装插件...');
             let source_configs_path = path.join(CONFIG.rootDir, "configs");
@@ -270,4 +285,4 @@ class UpdateSystem {
     }
 }
 
-module.exports = { UpdateSystem };
+module.exports = { UpdateSystem, compareVersions };

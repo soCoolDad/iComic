@@ -20,8 +20,20 @@ class db_query {
         }
         if (!this.dbInstance) {
             this.dbInstance = new Database(this.dbPath);
+            // 连接级 pragma，每次新建连接都要设置
+            this.dbInstance.pragma('journal_mode = WAL')
+            this.dbInstance.pragma('foreign_keys = ON')
+            this.dbInstance.pragma('synchronous = NORMAL')
         }
         return this.dbInstance;
+    }
+
+    // 关闭数据库连接
+    close() {
+        if (this.dbInstance) {
+            this.dbInstance.close();
+            this.dbInstance = null;
+        }
     }
 
     // 查询一条记录

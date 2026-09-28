@@ -154,6 +154,7 @@ class PluginManager {
     // 为插件创建作用域的 require
     createScopedRequire(pluginDir) {
         const originalRequire = require;
+        const builtinModules = require('module').builtinModules;
         return function scopedRequire(mod) {
             try {
                 // First try to resolve in the plugin's node_modules
@@ -161,19 +162,30 @@ class PluginManager {
                     require.resolve(mod, { paths: [pluginDir, path.join(pluginDir, 'node_modules')] })
                 );
             } catch (e) {
-                // Fall back to the parent's node_modules or core modules
-                // console.log("require error", e);
-                return originalRequire(mod);
+                // Fall back to Node.js core modules only (including subpath imports like fs/promises)
+                const modBase = mod.startsWith('node:') ? mod.slice(5) : mod.split('/')[0];
+                if (builtinModules.includes(modBase) || mod.startsWith('node:')) {
+                    return originalRequire(mod);
+                }
+                throw new Error(`Cannot find module '${mod}' in plugin scope`);
             }
         };
     }
-    œ
+
     // 重新加载插件
     async reloadPlugin(changedFile) {
         const pluginDir = path.dirname(changedFile);
         if (this.pluginDirs.has(pluginDir)) {
-            await this.unloadPlugin(pluginDir);
-            await this.loadPlugin(pluginDir);
+            // 防止重复卸载/加载（多个文件同时变化时只处理一次）
+            if (this._reloading && this._reloading.has(pluginDir)) return;
+            this._reloading = this._reloading || new Set();
+            this._reloading.add(pluginDir);
+            try {
+                await this.unloadPlugin(pluginDir);
+                await this.loadPlugin(pluginDir);
+            } finally {
+                this._reloading.delete(pluginDir);
+            }
         }
     }
 

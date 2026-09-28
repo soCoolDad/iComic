@@ -3,16 +3,26 @@
         <h1 class="title">{{ $t('download_task.title') }}</h1>
         <div class="dataBox">
             <el-table :data="list" stripe style="width: 100%">
-                <el-table-column :label="$t('download_task.col_status')" width="90">
+                <el-table-column :label="$t('download_task.col_status')" width="110">
                     <template #default="scope">
                         <el-tag v-if="scope.row.type == '0'" type="danger">{{ $t('download.add_to_task') }}</el-tag>
                         <el-tag v-if="scope.row.type == '1'" type="success">{{ $t('update.update') }}</el-tag>
+                        <el-tag v-if="scope.row.type == '2'" type="warning">{{ $t('download_task.col_status_on_demand') }}</el-tag>
                     </template>
                 </el-table-column>
                 <el-table-column :label="$t('download_task.col_name')" prop="name"></el-table-column>
                 <el-table-column :label="$t('download_task.col_progress')">
                     <template #default="scope">
-                        <div class="detail">
+                        <!-- 按需下载任务 -->
+                        <div v-if="scope.row.type == '2'" class="detail">
+                            <el-progress :text-inside="true" :stroke-width="20"
+                                :percentage="((scope.row.downloaded_count / scope.row.page_count) || 0) * 100"
+                                :status="(scope.row.page_count > 0 && scope.row.downloaded_count >= scope.row.page_count) || scope.row.is_complete ? 'success' : 'exception'">
+                                <span>{{ scope.row.downloaded_count }}/{{ scope.row.page_count }}</span>
+                            </el-progress>
+                        </div>
+                        <!-- 普通下载任务 -->
+                        <div v-else class="detail">
                             <div class="title">
                                 <div class="padding-top-10">
                                     <el-progress :text-inside="true" :stroke-width="20" :percentage="(((scope.row.current_page_complete_count +
@@ -53,6 +63,7 @@
                                     <span v-if="scope.row.status == 4">{{ $t('download_task.col_status_pause') }}</span>
                                     <span v-if="scope.row.status == 5">{{ $t('download_task.col_status_delete')
                                         }}</span>
+                                    <span v-if="scope.row.status == 6">{{ $t('download_task.col_status_on_demand') }}</span>
                                 </div>
                             </el-col>
                             <el-col :span="12">
@@ -63,17 +74,45 @@
                         </el-row>
                     </template>
                 </el-table-column>
-                <el-table-column width="190" :label="$t('download_task.col_action')">
+                <el-table-column width="150" :label="$t('download_task.col_action')">
                     <template #default="scope">
                         <div class="downloadBtnBox">
-                            <el-button v-if="scope.row.status == 0 || scope.row.status == 3 || scope.row.status == 4"
-                                type="primary" @click="handleDownload_begin(scope.row)">{{
-                                    $t('download_task.btn_action_start') }}</el-button>
-                            <el-button v-if="scope.row.status == 1" type="primary"
-                                @click="handleDownload_pause(scope.row)">{{ $t('download_task.btn_action_pause')
-                                }}</el-button>
-                            <el-button type="danger" @click="handleDownload_delete(scope.row)">{{
-                                $t('download_task.btn_action_delete') }}</el-button>
+                            <!-- 按需下载任务按钮 -->
+                            <template v-if="scope.row.type == '2'">
+                                <el-tooltip :content="$t('download_task.btn_action_start')" placement="top">
+                                    <el-button v-if="scope.row.status == 0 || scope.row.status == 3 || scope.row.status == 4"
+                                        circle type="primary" :icon="VideoPlay"
+                                        @click="handleDownload_begin(scope.row)" />
+                                </el-tooltip>
+                                <el-tooltip :content="$t('download_task.btn_read')" placement="top">
+                                    <el-button v-if="scope.row.status == 6" circle type="success" :icon="Reading"
+                                        @click="handleReadOnDemand(scope.row)" />
+                                </el-tooltip>
+                                <el-tooltip :content="$t('download_task.btn_prefetch')" placement="top">
+                                    <el-button v-if="scope.row.status == 6 && !scope.row.is_complete" circle type="warning"
+                                        :icon="Download" @click="handlePrefetch(scope.row)" />
+                                </el-tooltip>
+                                <el-tooltip :content="$t('download_task.btn_action_delete')" placement="top">
+                                    <el-button circle type="danger" :icon="Delete"
+                                        @click="handleDownload_delete(scope.row)" />
+                                </el-tooltip>
+                            </template>
+                            <!-- 普通下载任务按钮 -->
+                            <template v-else>
+                                <el-tooltip :content="$t('download_task.btn_action_start')" placement="top">
+                                    <el-button v-if="scope.row.status == 0 || scope.row.status == 3 || scope.row.status == 4"
+                                        circle type="primary" :icon="VideoPlay"
+                                        @click="handleDownload_begin(scope.row)" />
+                                </el-tooltip>
+                                <el-tooltip :content="$t('download_task.btn_action_pause')" placement="top">
+                                    <el-button v-if="scope.row.status == 1" circle type="warning" :icon="VideoPause"
+                                        @click="handleDownload_pause(scope.row)" />
+                                </el-tooltip>
+                                <el-tooltip :content="$t('download_task.btn_action_delete')" placement="top">
+                                    <el-button circle type="danger" :icon="Delete"
+                                        @click="handleDownload_delete(scope.row)" />
+                                </el-tooltip>
+                            </template>
                         </div>
                     </template>
                 </el-table-column>
@@ -101,7 +140,12 @@
 </template>
 <script lang="ts" setup>
 import {
-    Warning
+    Warning,
+    VideoPlay,
+    VideoPause,
+    Reading,
+    Download,
+    Delete
 } from '@element-plus/icons-vue';
 </script>
 <script lang="ts">
@@ -120,7 +164,7 @@ export default defineComponent({
             curItem: {} as task_item,
             list: [],
             ajaxWorking: false,
-            autoRefreshTimer: 0,
+            autoRefreshTimer: null as number | null,
             showErrors: false
         };
     },
@@ -242,6 +286,46 @@ export default defineComponent({
                     }
                 }
             });
+        },
+        handleReadOnDemand(row) {
+            this.$router.push({
+                path: '/reader',
+                query: { task_id: row.id, mode: 'on_demand' }
+            });
+        },
+        handlePrefetch(row) {
+            if (this.ajaxWorking) return;
+            this.ajaxWorking = true;
+
+            // 预下载未下载的页
+            let downloaded = row.downloaded_pages || [];
+            let total = row.page_count || 0;
+            let pages = [];
+            for (let i = 0; i < total; i++) {
+                if (!downloaded.includes(i)) {
+                    pages.push(i);
+                }
+            }
+
+            if (pages.length === 0) {
+                this.ajaxWorking = false;
+                return;
+            }
+
+            this.$g.http.send('/api/download_task/prefetch', 'post', {
+                task_id: row.id,
+                pages: pages
+            }).then((res) => {
+                if (res.status) {
+                    this.$g.tipbox.success(this.$t(res.msg, res.i18n || { count: pages.length }));
+                } else {
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
+                }
+            }).catch((err) => {
+                this.$g.tipbox.error(err.message);
+            }).finally(() => {
+                this.ajaxWorking = false;
+            });
         }
     }
 });
@@ -253,6 +337,17 @@ export default defineComponent({
 
     h1.title {
         font-size: 24px;
+    }
+
+    .downloadBtnBox {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: nowrap;
+
+        .el-button+.el-button {
+            margin-left: 8px;
+        }
     }
 
     .padding-top-10 {

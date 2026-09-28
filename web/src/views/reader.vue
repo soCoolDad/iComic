@@ -25,22 +25,22 @@
                 </el-page-header>
             </div>
             <!-- 虚拟滚动开始 -->
-            <div class="scroller">
+            <div class="scroller" :class="{ 'text_mode': plugin_content_type == 'text' }">
                 <div class="scroller_content">
                     <!-- 使用虚拟滚动 -->
-                    <VirtualScroller 
-                        v-if="plugin_content_type == 'image'" 
+                    <VirtualScroller
+                        v-if="plugin_content_type == 'image'"
                         ref="virtualScroller"
-                        :items="items" 
+                        :items="items"
                         :itemHeight="400"
                         :bufferSize="10"
                     >
                         <template #default="{ item, index }">
                             <div class="image_box">
-                                <LazyImage 
-                                    :src="item" 
-                                    :placeholderHeight="'400px'" 
-                                    :loadOffset="400" 
+                                <LazyImage
+                                    :src="item"
+                                    :placeholderHeight="'400px'"
+                                    :loadOffset="400"
                                     :destroy-offset="400"
                                     :directLoad = "true"
                                     @load="(img) => onImageLoad(index, img)"
@@ -52,6 +52,10 @@
                     <div class="text_box" v-for="item in items" v-if="plugin_content_type == 'text'">
                         <div class="text" v-html="getBlockText(item)"></div>
                     </div>
+
+                    <!-- 文本模式的滚动内容尾部间隔：底栏出现时把内容顶上去（滚动容器自身的尾部 padding 部分浏览器不生效） -->
+                    <div class="bar_spacer" v-if="plugin_content_type == 'text'"
+                        :style="{ height: show_bar ? '80px' : '0px' }"></div>
                 </div>
             </div>
 
@@ -61,15 +65,13 @@
                         <el-button circle type="primary" @click="handlePrev" :icon="ArrowLeftBold"></el-button>
                     </el-col>
                     <el-col :span="12" :xs="16">
-                        <!-- file_page_list -->
-                        <!-- <el-select @change="onSelectChange()" v-model="chapter_index" placeholder="select chapter">
-                            <el-option v-for="(item, index) in file_page_list" :label="item.title" :value="index">
-                                {{ item.title }}
-                            </el-option>
-                        </el-select> -->
                         <el-cascader style="width: 100%;" :options="options" :show-all-levels="false"
                             v-model="cascader_value" placeholder="select chapter"
                             @change="onSelectChange()"></el-cascader>
+                        <div v-if="on_demand_mode" class="on-demand-progress">
+                            <el-progress :percentage="downloadProgress" :stroke-width="10"
+                                :format="() => `${downloaded_pages_count}/${total_pages_count}`" />
+                        </div>
                     </el-col>
                     <el-col :span="6" :xs="4">
                         <el-button circle type="primary" @click="handleNext" :icon="ArrowRightBold"></el-button>
@@ -122,6 +124,13 @@ export default defineComponent({
                 this.chapter_index = val[val.length - 1]; // 通常取最后一级的值
             }
         },
+        downloadProgress() {
+            if (this.total_pages_count === 0) return 0;
+            return Math.round((this.downloaded_pages_count / this.total_pages_count) * 100);
+        },
+        downloaded_pages_count() {
+            return this.downloaded_pages.length;
+        },
         current_title() {
             let name = this.file?.name;
             let title = this.file_page_list[this.chapter_index]?.title;
@@ -165,11 +174,18 @@ export default defineComponent({
             }
 
             return newOptions;
+        },
+        total_pages_count() {
+            return this.file_page_list.length;
         }
     },
     watch: {
         chapter_index(newVal) {
-            //console.log("change page", newVal);
+            // 按需模式还没有 library 记录，进度先存本地，入库前也能续读
+            if (this.on_demand_mode) {
+                sessionStorage.setItem(`on_demand_${this.task_id}_chapter_index`, String(newVal));
+                return;
+            }
             this.send_read_progress(newVal);
         }
     },
@@ -185,11 +201,20 @@ export default defineComponent({
             items: [] as Array<string>,
             show_bar: true,
             plugin_content_type: "",
-            text_cache: {}
+            text_cache: {},
+            // 按需下载模式
+            on_demand_mode: false,
+            task_id: "",
+            downloaded_pages: [] as number[],
+            page_block_counts: [] as number[],
+            download_timer: null as any
         }
     },
     mounted() {
         this.onload();
+    },
+    beforeUnmount() {
+        this.stopPolling();
     },
     methods: {
         onBack() {
@@ -231,7 +256,7 @@ export default defineComponent({
                         this.text_cache[key] = `load error:${res.msg}`;
                     }
                 }).catch((err) => {
-                    this.text_cache[key] = `load error:${err.massage}`;
+                    this.text_cache[key] = `load error:${err.message}`;
                     return ""
                 });
                 return "loading...";
@@ -252,13 +277,16 @@ export default defineComponent({
             });
         },
         onload() {
-            //获取文件配置
-            //getLibraryById
+            // 按需下载模式
+            if (this.$route.query.mode === 'on_demand' && this.$route.query.task_id) {
+                this.on_demand_mode = true;
+                this.task_id = String(this.$route.query.task_id);
+                return this.onloadOnDemand();
+            }
+
             let plugin_id = String(this.$route.query.plugin_id);
             let library_id = String(this.$route.query.library_id);
-            let chapter_index = 0;
 
-            //console.log(this.$route.query);
             if (!plugin_id) {
                 this.page_error = this.$t('server.no_plugin_select');
                 this.$g.tipbox.error(this.$t('server.no_plugin_select'));
@@ -271,14 +299,7 @@ export default defineComponent({
                 return;
             }
 
-            if (!chapter_index) {
-                chapter_index = 0;
-            }
-
-            if (this.page_loading) {
-                return;
-            }
-
+            if (this.page_loading) return;
             this.page_loading = true;
 
             let getLibraryById = this.$g.http.send('/api/library/getLibraryById', 'post', {
@@ -293,11 +314,9 @@ export default defineComponent({
                     this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
             }).catch((err) => {
-                //...
                 this.page_error = err.message;
                 this.$g.tipbox.error(err.message);
             }).finally(() => {
-                //...
                 this.page_loading = false;
             });
 
@@ -305,7 +324,6 @@ export default defineComponent({
                 plugin_id: this.$route.query.plugin_id
             }).then((res) => {
                 if (res.status) {
-                    //
                     this.plugin_content_type = res.data.content_type;
                 } else {
                     this.$g.tipbox.error(this.$t(res.msg, res.i18n));
@@ -314,10 +332,7 @@ export default defineComponent({
                 this.$g.tipbox.error(err.message);
             });
 
-            //
-            let load_queue = [getLibraryById, getPluginById];
-
-            Promise.all(load_queue).then(() => {
+            Promise.all([getLibraryById, getPluginById]).then(() => {
                 let local_chapter_index = sessionStorage.getItem(`${this.$route.query.library_id}_chapter_index`);
 
                 if (local_chapter_index === null || local_chapter_index === undefined) {
@@ -330,13 +345,175 @@ export default defineComponent({
                 this.initItems();
             });
         },
+        async onloadOnDemand() {
+            if (this.page_loading) return;
+            this.page_loading = true;
+
+            try {
+                let res = await this.$g.http.send(`/api/download_task/getPageStatus?task_id=${this.task_id}`, 'get');
+                if (!res.status) {
+                    this.page_error = this.$t(res.msg, res.i18n);
+                    return;
+                }
+
+                let data = res.data;
+                this.plugin_content_type = data.content_type || "image";
+
+                // 构建 page_list：每个页作为一个 chapter（同时更新书籍信息）
+                this.buildOnDemandPages(data);
+
+                // 启动轮询刷新下载状态
+                this.startPolling();
+            } catch (err: any) {
+                this.page_error = err.message;
+                this.$g.tipbox.error(err.message);
+            } finally {
+                this.page_loading = false;
+            }
+
+            this.initItems();
+        },
+        // 用 getPageStatus 的数据构建按需模式的页面列表（元数据就绪前后都可调用）
+        buildOnDemandPages(data) {
+            let total = data.total_pages || 0;
+
+            this.file = {
+                id: data.task_id,
+                name: data.name,
+                page_count: total,
+                author: data.book_meta?.author || "",
+                description: data.book_meta?.description || "",
+                status: data.status,
+                read_page_progress: 0
+            } as any;
+
+            this.downloaded_pages = data.downloaded_pages || [];
+            this.page_block_counts = data.page_block_counts || [];
+
+            this.file_page_list = [];
+            for (let i = 0; i < total; i++) {
+                this.file_page_list.push({
+                    title: `第${i + 1}页`,
+                    region: []
+                });
+            }
+
+            // 首次拿到元数据时恢复上次阅读位置
+            if (this.chapter_index === 0) {
+                let saved = sessionStorage.getItem(`on_demand_${this.task_id}_chapter_index`);
+                if (saved !== null && Number(saved) > 0 && Number(saved) < total) {
+                    this.chapter_index = Number(saved);
+                }
+            }
+        },
+        startPolling() {
+            this.stopPolling();
+            this.download_timer = setInterval(() => {
+                this.$g.http.send(`/api/download_task/getPageStatus?task_id=${this.task_id}`, 'get').then((res) => {
+                    if (!res.status) {
+                        // 任务不存在（已删除或服务异常），停止轮询
+                        this.stopPolling();
+                        return;
+                    }
+                    let data = res.data;
+                    let prevCount = this.downloaded_pages.length;
+                    this.downloaded_pages = data.downloaded_pages || [];
+                    this.page_block_counts = data.page_block_counts || [];
+
+                    // 插件未声明 content_type 时，类型要从已下载分片推断，
+                    // 推断结果可能晚于首次加载，变化后重新按正确方式渲染
+                    if (data.content_type && this.plugin_content_type !== data.content_type) {
+                        this.plugin_content_type = data.content_type;
+                        this.initItems();
+                    }
+
+                    // 任务未开始/失败/暂停/删除：停止轮询并提示，避免无限空转
+                    const statusMsg = {
+                        0: 'download_task.col_status_wait',
+                        3: 'download_task.col_status_error',
+                        4: 'download_task.col_status_pause',
+                        5: 'download_task.col_status_delete'
+                    };
+                    if (statusMsg[data.status] !== undefined) {
+                        this.stopPolling();
+                        this.page_error = this.$t(statusMsg[data.status]);
+                        return;
+                    }
+
+                    // 元数据就绪后重建页面列表（"立即阅读"入口可能早于元数据返回）
+                    if ((data.total_pages || 0) > this.file_page_list.length) {
+                        this.buildOnDemandPages(data);
+                        this.initItems();
+                    }
+
+                    // 全部下载完成开始合并入库，停止轮询
+                    if (data.is_complete || data.status == 2) {
+                        this.stopPolling();
+                        return;
+                    }
+
+                    // 如果当前页新下载完成，刷新 items
+                    if (this.downloaded_pages.length > prevCount && this.downloaded_pages.includes(this.chapter_index)) {
+                        this.initItems();
+                    }
+                }).catch(() => { });
+            }, 3000);
+        },
+        stopPolling() {
+            if (this.download_timer) {
+                clearInterval(this.download_timer);
+                this.download_timer = null;
+            }
+        },
+        async ensurePageDownloaded(pageIndex: number): Promise<boolean> {
+            if (this.downloaded_pages.includes(pageIndex)) return true;
+
+            let res = await this.$g.http.send('/api/download_task/downloadPage', 'post', {
+                task_id: this.task_id,
+                page: pageIndex
+            });
+
+            if (res.status) {
+                // 刷新状态
+                let statusRes = await this.$g.http.send(`/api/download_task/getPageStatus?task_id=${this.task_id}`, 'get');
+                if (statusRes.status) {
+                    this.downloaded_pages = statusRes.data.downloaded_pages || [];
+                    this.page_block_counts = statusRes.data.page_block_counts || [];
+                }
+                return true;
+            } else {
+                this.$g.tipbox.error(this.$t(res.msg, res.i18n));
+                return false;
+            }
+        },
         initItems(btn_scrollTop = true) {
-            //
             let current_chapter = this.current_chapter;
 
-            //console.log('current_chapter', current_chapter);
+            if (!current_chapter) return;
 
-            if (!current_chapter) {
+            // 按需下载模式
+            if (this.on_demand_mode) {
+                let pageIndex = this.chapter_index;
+                if (!this.downloaded_pages.includes(pageIndex)) {
+                    this.page_loading = true;
+                    this.ensurePageDownloaded(pageIndex).then((ok) => {
+                        this.page_loading = false;
+                        if (ok) {
+                            this.initItems();
+                        }
+                    });
+                    return;
+                }
+
+                let blockCount = this.page_block_counts[pageIndex] || 0;
+                let image_urls = [] as Array<string>;
+                for (let b = 0; b < blockCount; b++) {
+                    image_urls.push(`/api/download_task/getBlock?task_id=${this.task_id}&page=${pageIndex}&block=${b}`);
+                }
+                this.items = [];
+                this.$nextTick(() => {
+                    this.items = image_urls;
+                });
                 return;
             }
 
@@ -347,36 +524,9 @@ export default defineComponent({
                 image_urls.push(`/api/parse/block?pi=${this.$route.query.plugin_id}&li=${this.$route.query.library_id}&page=${this.chapter_index}&block=${region}`);
             });
 
-            //console.log('image_urls', image_urls);
             this.$nextTick(() => {
                 this.items = image_urls;
             });
-
-            // // 滚动到顶部
-            // btn_scrollTop && this.$nextTick(() => {
-            //     const scroller = this.$refs.scroller;
-
-            //     if (scroller) {
-            //         (scroller as any).scroll(0, 0); // 直接操作DOM作为备选方案
-            //     }
-
-            //     window.scrollTo(0, 0);
-            // });
-        },
-        handlePrev() {
-            let chapter_index = this.chapter_index - 1;
-
-            if (chapter_index < 0) {
-                chapter_index = 0;
-            }
-
-            if (chapter_index == this.chapter_index) {
-                return;
-            }
-
-            this.chapter_index = chapter_index;
-
-            this.initItems();
         },
         handleNext() {
             let chapter_index = this.chapter_index + 1;
@@ -385,12 +535,45 @@ export default defineComponent({
                 chapter_index = this.file_page_list.length - 1;
             }
 
-            if (chapter_index == this.chapter_index) {
+            if (chapter_index == this.chapter_index) return;
+
+            // 按需下载模式：先下载再跳转
+            if (this.on_demand_mode && !this.downloaded_pages.includes(chapter_index)) {
+                if (this.page_loading) return;
+                this.page_loading = true;
+                this.ensurePageDownloaded(chapter_index).then((ok) => {
+                    this.page_loading = false;
+                    if (ok) {
+                        this.chapter_index = chapter_index;
+                        this.initItems();
+                    }
+                });
                 return;
             }
 
             this.chapter_index = chapter_index;
+            this.initItems();
+        },
+        handlePrev() {
+            let chapter_index = this.chapter_index - 1;
 
+            if (chapter_index < 0) {
+                chapter_index = 0;
+            }
+
+            if (chapter_index == this.chapter_index) return;
+
+            if (this.on_demand_mode && !this.downloaded_pages.includes(chapter_index)) {
+                // 上一页未下载，跳到第一个已下载的页
+                let prevDownloaded = this.downloaded_pages.filter(p => p < this.chapter_index);
+                if (prevDownloaded.length > 0) {
+                    chapter_index = prevDownloaded[prevDownloaded.length - 1];
+                } else {
+                    return;
+                }
+            }
+
+            this.chapter_index = chapter_index;
             this.initItems();
         },
         onSelectChange() {
@@ -488,6 +671,17 @@ export default defineComponent({
             transition: padding 0.2s ease-in-out;
             background-color: rgba(255, 255, 255, 1);
             box-sizing: border-box;
+
+            // 文本模式的滚动容器就是自身，尾部间隔改由内容内的 bar_spacer 提供，
+            // 避免部分浏览器丢弃滚动容器尾部 padding 导致末尾内容被底栏遮住
+            &.text_mode {
+                padding-bottom: 0;
+            }
+
+            .bar_spacer {
+                width: 100%;
+                transition: height 0.2s ease-in-out;
+            }
             .scroller_content {
                 max-width: 600px;
                 margin: 0 auto;
@@ -580,8 +774,12 @@ export default defineComponent({
             -webkit-box-orient: vertical;
             line-clamp: 1;
             -webkit-line-clamp: 1;
-            overflow: hidden; // 隐藏溢出内容
+            overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .on-demand-progress {
+            margin-top: 4px;
         }
     }
 

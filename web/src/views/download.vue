@@ -58,7 +58,7 @@
                                         </b>
                                     </div>
                                 </div>
-                                <div class="description">
+                                <div class="description" v-if="scope.row.description && scope.row.description.length > 0">
                                     <div>{{ $t('download.col_description') }}</div>
                                     <div class="showTowLine">
                                         {{ scope.row.description }}
@@ -67,11 +67,17 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('download.add_to_col')" width="130">
+                    <el-table-column :label="$t('download.add_to_col')" width="120">
                         <template #default="scope">
                             <div class="downloadBtnBox">
-                                <el-button type="primary" @click="handleDownload(scope.row)">{{
-                                    $t('download.add_to_task') }}</el-button>
+                                <el-tooltip :content="$t('download.add_to_task')" placement="top">
+                                    <el-button circle type="primary" :icon="Plus"
+                                        @click="handleDownload(scope.row)" />
+                                </el-tooltip>
+                                <el-tooltip :content="$t('download.read_now')" placement="top">
+                                    <el-button circle type="success" :icon="Reading"
+                                        @click="handleOnDemand(scope.row)" />
+                                </el-tooltip>
                             </div>
                         </template>
                     </el-table-column>
@@ -84,8 +90,14 @@
     </div>
 </template>
 
+<script lang="ts" setup>
+import {
+    Plus,
+    Reading
+} from '@element-plus/icons-vue';
+</script>
+
 <script lang="ts">
-import { Loading } from '@element-plus/icons-vue/dist/types';
 import { defineComponent } from 'vue';
 
 export default defineComponent({
@@ -116,7 +128,10 @@ export default defineComponent({
         load() {
             this.ajaxWorking = true;
             this.$g.http.send('/api/plugin/getAllPlugins', 'get').then((res) => {
-                //console.log('onLoad success', res);
+                if (!res.status) {
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
+                    return;
+                }
                 let plugins: Array<{ name: string, id: string, placeholder: string }> = [];
 
                 (res.data || []).map(item => {
@@ -130,8 +145,6 @@ export default defineComponent({
                 });
 
                 this.plugins = plugins;
-
-                //this.plugins = res.data;
             }).catch((err) => {
                 //console.log('onLoad error', err);
                 this.$g.tipbox.error(this.$t(err.msg, err.i18n));
@@ -178,7 +191,6 @@ export default defineComponent({
             });
         },
         handleDownload(row) {
-            // 
             if (this.ajaxWorking) {
                 return;
             }
@@ -190,12 +202,49 @@ export default defineComponent({
                 name: row.name,
                 search_result: row
             }).then((res) => {
-                //console.log('onLoad success', res);
                 if (res.status) {
                     this.$g.tipbox.success(this.$t(res.msg, res.i18n));
                 } else {
                     this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
+            }).catch((err) => {
+                this.$g.tipbox.error(err.message);
+            }).finally(() => {
+                this.ajaxWorking = false;
+            });
+        },
+        handleOnDemand(row) {
+            if (this.ajaxWorking) return;
+            this.ajaxWorking = true;
+
+            this.$g.http.send('/api/download/addOnDemand', 'post', {
+                plugin_id: this.plugin_select,
+                name: row.name,
+                search_result: row
+            }).then((res) => {
+                let task_id = res.data?.id;
+                if (!res.status) {
+                    // 已存在同书任务：按需任务直接打开，其余报错
+                    if (!(res.data && res.data.type == 2 && task_id)) {
+                        this.$g.tipbox.error(this.$t(res.msg, res.i18n));
+                        return;
+                    }
+                }
+                if (!task_id) return;
+
+                return this.$g.http.send('/api/download_task/begin', 'post', {
+                    task_id: task_id
+                }).then((res2) => {
+                    if (res2.status) {
+                        this.$g.tipbox.success(this.$t('download.reading_started'));
+                        this.$router.push({
+                            path: '/reader',
+                            query: { task_id: task_id, mode: 'on_demand' }
+                        });
+                    } else {
+                        this.$g.tipbox.error(this.$t(res2.msg, res2.i18n));
+                    }
+                });
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
             }).finally(() => {
@@ -236,7 +285,14 @@ export default defineComponent({
     }
 
     .downloadBtnBox {
-        text-align: left;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: nowrap;
+
+        .el-button+.el-button {
+            margin-left: 8px;
+        }
     }
 
     .showTowLine {

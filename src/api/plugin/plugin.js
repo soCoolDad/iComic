@@ -1,10 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 class plugin {
-    constructor() {
-
-    }
-
     getPluginByType(req, res, helpers) {
         let type = req.body.type;
         let plugins = helpers.plugin.getPluginsByType(type);
@@ -19,7 +15,7 @@ class plugin {
                 version: item.version,
                 description: item.description,
                 placeholder: item.placeholder,
-                content_type: plugin.content_type,
+                content_type: item.content_type,
                 need_install: item.need_install,
                 installed: fs.existsSync(path.join(item.path, "node_modules"))
             });

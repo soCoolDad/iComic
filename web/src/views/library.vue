@@ -8,7 +8,7 @@
                 <el-button type="primary" @click="onScan" :loading="ajaxWorking">{{ $t('library.scan') }}</el-button>
             </el-col>
         </el-row>
-        <div class="empty" v-if="list.length == 0">
+        <div class="empty" v-if="list.length == 0 && downloading.length == 0">
             <el-empty :description="$t('library.empty')" />
         </div>
         <div class="has_data" v-else>
@@ -26,6 +26,15 @@
                 <el-row :gutter="20">
                     <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" class="padding-button-20" v-for="item in new_adds"
                         :key="item.id">
+                        <comic :data="item" @click="onComicClick(item)" />
+                    </el-col>
+                </el-row>
+            </div>
+            <div class="data_box" v-if="downloading.length > 0">
+                <div class="title">{{ $t('library.downloading') }}</div>
+                <el-row :gutter="20">
+                    <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" class="padding-button-20"
+                        v-for="item in downloading" :key="item.id">
                         <comic :data="item" @click="onComicClick(item)" />
                     </el-col>
                 </el-row>
@@ -101,6 +110,12 @@ interface ComicItem {
     read_update_time: number;
     parse_plugin: string;
     search_plugin: string;
+    // 首页下载任务卡片专用
+    is_task?: boolean;
+    is_on_demand?: boolean;
+    task_id?: number;
+    task_type?: number;
+    task_status?: number;
 }
 
 interface plugin_reader_item {
@@ -168,6 +183,8 @@ export default defineComponent({
             new_adds: [] as ComicItem[],
             continues: [] as ComicItem[],
             list: [] as ComicItem[],
+            downloading: [] as ComicItem[],
+            raw_tasks: [] as any[],
             showReadTo: false,
             plugin_list: [] as plugin_reader_item[],
             select_plugin: '',
@@ -183,22 +200,24 @@ export default defineComponent({
         this.isUnmounted = true;
     },
     methods: {
-        onParseChange(item) {
+        onParseChange(item, retryCount = 0) {
+            const MAX_RETRY = 30;
             if (this.isUnmounted) {
+                return;
+            }
+            if (retryCount >= MAX_RETRY) {
                 return;
             }
             let old_item = item;
 
             setTimeout(() => {
                 let old_status = old_item?.status;
-                let changed = false;
 
                 if (this.isUnmounted) {
                     return;
                 }
 
                 if (old_item) {
-                    //getLibraryById
                     this.$g.http.send('/api/library/getLibraryById', 'post', {
                         library_id: old_item?.id
                     }).then((res) => {
@@ -207,28 +226,28 @@ export default defineComponent({
                                 let cur = this.list[i];
 
                                 if (cur?.id == res?.data?.id) {
-                                    changed = res?.data?.status != old_status;
-
-                                    if (changed) {
+                                    if (res?.data?.status != old_status) {
                                         this.list[i] = res.data;
                                     } else {
-                                        this.onParseChange(old_item);
+                                        this.onParseChange(old_item, retryCount + 1);
                                     }
 
                                     break;
                                 }
                             }
                         }
-                    }).catch((err) => {
-                        //...
+                    }).catch(() => {
                     }).finally(() => {
-                        //...
                     });
                 }
             }, 1000);
         },
         onReadToParse() {
-            //
+            //判断是否选了插件
+            if (this.select_plugin === '') {
+                this.$g.tipbox.error(this.$t('server.no_plugin_select'));
+                return;
+            }
             let item = this.curItem;
             if (this.ajaxWorking) {
                 return;
@@ -277,7 +296,53 @@ export default defineComponent({
 
             sessionStorage.setItem(`${this.curItem?.id}_chapter_index`, String(this.select_chapter));
         },
+        // 把进行中的下载任务映射成首页书籍卡片：
+        // 按需任务（type 2）点击直达阅读器；普通任务（type 0/1）点击跳任务页。
+        // 同名书籍已入库（下载合并完成并自动扫描）后不再显示
+        buildTaskCards(libraryList: ComicItem[]) {
+            const libNames = new Set((libraryList || []).map(i => i.name));
+            this.downloading = (this.raw_tasks || [])
+                .filter(t => {
+                    const finished = t.type == 2 ? !!t.is_complete : t.status == 2;
+                    const name = t.type == 2 && t.book_meta ? t.book_meta.name : t.name;
+                    return !finished && !libNames.has(name);
+                })
+                .map(t => {
+                    const isOnDemand = t.type == 2;
+                    const hasMeta = isOnDemand && !!t.book_meta;
+                    const meta = t.book_meta || {};
+                    return {
+                        id: 'task-' + t.id,
+                        task_id: t.id,
+                        task_type: t.type,
+                        task_status: t.status,
+                        is_task: true,
+                        is_on_demand: hasMeta,
+                        name: hasMeta ? meta.name : t.name,
+                        description: meta.description || '',
+                        tags: (meta.tags || []).slice(0, 4)
+                            .map((tag: any) => typeof tag === 'string' ? { name: tag } : tag),
+                        status: t.status == 3 ? 3 : 2,
+                        page_count: (hasMeta ? meta.page_count : t.page_count) || 0,
+                        read_page_progress: hasMeta ? (t.downloaded_count || 0) : (t.page_complete_count || 0)
+                    } as any;
+                });
+        },
         onComicClick(item: ComicItem) {
+            // 首页上的下载任务卡片
+            if (item.is_task) {
+                // 按需阅读中：直接进按需阅读器
+                if (item.is_on_demand) {
+                    this.$router.push({
+                        path: '/reader',
+                        query: { task_id: item.task_id, mode: 'on_demand' }
+                    });
+                    return;
+                }
+                // 普通下载任务：去任务页操作
+                this.$router.push({ path: '/download_task' });
+                return;
+            }
             //
             this.curItem = item;
             this.showReadTo = true;
@@ -347,6 +412,7 @@ export default defineComponent({
                     this.list = list;
                     this.continues = continues;
                     this.new_adds = new_adds;
+                    this.buildTaskCards(list);
                 } else {
                     this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 }
@@ -355,6 +421,14 @@ export default defineComponent({
             }).finally(() => {
                 this.ajaxWorking = false;
             });
+
+            // 拉取按需下载任务，首页展示"按需阅读中"的书籍
+            this.$g.http.send('/api/download_task/getAllTasks', 'get').then((res) => {
+                if (res.status) {
+                    this.raw_tasks = res.data || [];
+                    this.buildTaskCards(this.list);
+                }
+            }).catch(() => { });
 
             this.$g.http.send('/api/plugin/getPluginByType', 'post', { type: 'parser' }).then((res) => {
                 if (res.status) {

@@ -1,6 +1,6 @@
 {
   "name": "icomic",
-  "version": "0.0.46",
+  "version": "0.0.47",
   "description": "A Node.js application for managing and displaying comics.",
   "main": "src/index.js",
   "scripts": {
@@ -12,11 +12,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "better-sqlite3": "11.10.0",
+    "better-sqlite3": "^13.0.3",
     "cheerio": "1.1.0",
     "chokidar": "4.0.3",
     "curl-impersonate": "^0.0.0",
-    "express": "4.17.1",
+    "express": "4.21.2",
     "fs-extra": "11.3.0",
     "https-proxy-agent": "^7.0.6",
     "jsonwebtoken": "9.0.2",
