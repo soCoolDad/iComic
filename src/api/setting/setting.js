@@ -29,7 +29,8 @@ class setting {
 
     readConfigToEnv() {
         (this.config.COPT_TO_EVN || []).forEach(key => {
-            if (this.config[key] !== undefined) {
+            // 空值不写入：避免空配置覆盖外部注入（docker -e / shell 环境变量）的参数
+            if (this.config[key] !== undefined && this.config[key] !== '') {
                 process.env[key] = this.config[key];
             }
         });

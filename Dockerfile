@@ -1,5 +1,5 @@
 # 使用官方 Node.js LTS 版本
-FROM node:20-alpine
+FROM node:22-alpine
 
 # 安装构建依赖
 RUN apk add --no-cache \
@@ -28,14 +28,15 @@ COPY configs/plugin/ictz_file_parse configs/plugin/ictz_file_parse
 COPY configs/plugin/lang-en configs/plugin/lang-en  
 COPY configs/plugin/lang-zh-cn configs/plugin/lang-zh-cn
 
-# 3. 安装依赖（推荐使用npm或yarn）
-RUN npm install -g cnpm
+# 3. 安装依赖（使用国内镜像加速）
+ENV npm_config_registry=https://registry.npmmirror.com \
+    npm_config_disturl=https://cdn.npmmirror.com/binaries/node
 RUN mkdir -p /var/log/pm2 && \
-    cnpm install -g pm2
-RUN cnpm install
+    npm install -g pm2
+RUN npm install
 WORKDIR /app/web
-RUN cnpm install
-RUN cnpm run build
+RUN npm install
+RUN npm run build
 WORKDIR /app
 
 # 4. 暴露配置目录和端口
