@@ -30,8 +30,12 @@ class BlockDownloader {
     }
 
     async downloadAll(urls) {
+        // 按页进度：开始时登记总块数，每个块结束（无论成败）后累加
+        this.task.setPageBlockProgressTotal(this.i, urls.length);
         const downloadPromises = urls.map((url, j) =>
-            this.limit(() => this.downloadWithRetry(url, j))
+            this.limit(() => this.downloadWithRetry(url, j).finally(() => {
+                this.task.incrementPageBlockDone(this.i);
+            }))
         );
 
         console.log(`开始下载`, urls.length, `个块，并发数:`, this.concurrency);
@@ -280,6 +284,19 @@ class download_task {
     // 按需下载：延迟合并定时器与合并进行中标记
     merge_timer = null;
     merging = false;
+    // 按需下载：每页下载进度（pageIndex -> { done, total }），供阅读器展示
+    page_progress = new Map();
+
+    setPageBlockProgressTotal(pageIndex, total) {
+        let p = this.page_progress.get(pageIndex);
+        if (p) p.total = total;
+        else this.page_progress.set(pageIndex, { done: 0, total });
+    }
+
+    incrementPageBlockDone(pageIndex) {
+        let p = this.page_progress.get(pageIndex);
+        if (p) p.done++;
+    }
     constructor(task_id, helpers, library_path, nextTask) {
         let task = helpers.db_query.get('SELECT * FROM download_task WHERE id=?', [task_id]);
         let plugin = helpers.plugin.getPlugin(task.search_plugin);
@@ -856,6 +873,14 @@ class download_task {
             return { status: false, msg: "server.book_meta_not_ready" };
         }
 
+        // 服务重启后 scanAllTask 先于异步插件加载，这里按需补取插件引用
+        if (!this.plugin && this.plugin_id) {
+            this.plugin = this.helpers.plugin.getPlugin(this.plugin_id);
+        }
+        if (!this.plugin) {
+            return { status: false, msg: "server.no_plugin" };
+        }
+
         if (!Number.isInteger(pageIndex) || pageIndex < 0 || pageIndex >= this.book_meta.page_count) {
             return { status: false, msg: "server.invalid_page" };
         }
@@ -945,6 +970,8 @@ class download_task {
         let page_zip = new yazl.ZipFile();
         let downloader = new BlockDownloader(this, page_zip, page_detail_title, pageIndex, iComic);
         let { errors } = await downloader.downloadAll(page_detail_blocks);
+        // 页内所有块已结算，进度条使命完成
+        this.page_progress.delete(pageIndex);
 
         if (errors.length > 0) {
             page_zip.end();
@@ -1008,6 +1035,10 @@ class download_task {
                 downloaded_count: this.downloaded_pages.length,
                 is_complete: this.is_complete,
                 page_block_counts: meta.page_block_counts || [],
+                // 目录列表：getDetail 返回并随 book_meta 持久化的每页标题
+                page_titles: (meta.pages || []).map(p => (p && p.title) || ''),
+                // 正在下载的页进度 { pageIndex: { done, total } }
+                page_progress: Object.fromEntries(this.page_progress),
                 book_meta: meta ? {
                     name: meta.name,
                     author: meta.author,
@@ -1027,8 +1058,8 @@ class download_task {
         let part_path = path.join(this.tmp_dir, `${pageIndex + 1}.part`);
 
         if (!fs.existsSync(part_path)) {
-            // 仅按需任务有合并回退，其余直接视为未下载
-            if (this.type != 2 || !this.plugin) {
+            // 分片已被合并清理：回退到合并后的 CBZ（仅按需任务有合并产物）
+            if (this.type != 2) {
                 return { status: false, msg: "server.page_not_downloaded" };
             }
             return await this.getBlockFromMerged(pageIndex, blockIndex);
@@ -1066,12 +1097,25 @@ class download_task {
      * 从合并后的 CBZ 读取块图片（按合并时的分片顺序定位：封面 1 条 + 各页块数偏移）
      */
     async getBlockFromMerged(pageIndex, blockIndex) {
-        let ext = ".cbz";
-        try {
-            ext = (await this.plugin.saveFileExtension()) || ext;
-        } catch (e) { }
-        let merged_path = path.join(this.save_dir, this.name + ext);
-        if (!fs.existsSync(merged_path)) {
+        // 优先用插件声明的扩展名定位合并产物；插件引用缺失（重启后异步加载未完成）时按通用后缀查找
+        let merged_path = null;
+        if (this.plugin) {
+            try {
+                let ext = await this.plugin.saveFileExtension();
+                if (ext) merged_path = path.join(this.save_dir, this.name + ext);
+            } catch (e) { }
+        }
+        if (!merged_path || !fs.existsSync(merged_path)) {
+            try {
+                if (fs.existsSync(this.save_dir)) {
+                    let found = fs.readdirSync(this.save_dir).find(f =>
+                        f.startsWith(this.name) && f !== this.name + '.json' &&
+                        ['.cbz', '.ictz', '.zip'].includes(path.extname(f).toLowerCase()));
+                    if (found) merged_path = path.join(this.save_dir, found);
+                }
+            } catch (e) { }
+        }
+        if (!merged_path || !fs.existsSync(merged_path)) {
             return { status: false, msg: "server.page_not_downloaded" };
         }
 

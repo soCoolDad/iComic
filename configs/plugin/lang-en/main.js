@@ -47,6 +47,7 @@ class EnglishLanguagePlugin extends LanguagePlugin {
             reader: {
                 loading_title: "Loading",
                 loading_description: "Page is loading, please wait a moment!",
+                downloading_page: "Downloading page...",
                 loading_error_title: "Loading failed",
                 loading_error_description: "Page loading failed: {error}",
             },

@@ -5,3 +5,17 @@ web/node_modules
 README.md
 .github/
 .vscode/
+.pnpm-store
+.git
+icomic.tar
+configs/db
+configs/library
+web/dist
+Dockerfile
+.dockerignore
+# 用户安装的插件不进镜像，仅保留内置插件
+configs/plugin/*
+!configs/plugin/cbz_file_parse
+!configs/plugin/ictz_file_parse
+!configs/plugin/lang-en
+!configs/plugin/lang-zh-cn

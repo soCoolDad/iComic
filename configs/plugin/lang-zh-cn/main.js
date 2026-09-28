@@ -47,6 +47,7 @@ class ChineseLanguagePlugin extends LanguagePlugin {
             reader: {
                 loading_title: "加载中",
                 loading_description: "页面加载中，请稍稍等待！",
+                downloading_page: "正在下载本页…",
                 loading_error_title: "加载失败",
                 loading_error_description: "页面加载失败：{error}",
             },
