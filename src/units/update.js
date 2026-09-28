@@ -29,6 +29,8 @@ const CONFIG = {
 function runCommand(cmd, args, cwd = process.cwd()) {
     return new Promise((resolve, reject) => {
         const child = spawn(cmd, args, { cwd, stdio: 'inherit' });
+        // 命令不存在等 spawn 错误必须监听，否则会成为未捕获异常导致整个进程退出
+        child.on('error', reject);
         child.on('close', code => {
             if (code === 0) resolve();
             else reject(new Error(`${cmd} ${args.join(' ')} failed, code: ${code}`));
@@ -211,11 +213,11 @@ class UpdateSystem {
             }
 
             console.log('update', '安装新依赖...');
-            await runCommand('cnpm', ['install', '--quiet'], CONFIG.rootDir);
-            await runCommand('cnpm', ['install', '--quiet'], path.join(CONFIG.rootDir, 'web'));
+            await runCommand('npm', ['install', '--no-audit', '--no-fund'], CONFIG.rootDir);
+            await runCommand('npm', ['install', '--no-audit', '--no-fund'], path.join(CONFIG.rootDir, 'web'));
 
             console.log('update', '构建新版本...');
-            await runCommand('cnpm', ['run', 'build', '--silent'], path.join(CONFIG.rootDir, 'web'));
+            await runCommand('npm', ['run', 'build', '--silent'], path.join(CONFIG.rootDir, 'web'));
         } catch (error) {
             throw new Error(`应用更新失败: ${error.message}`);
         }
