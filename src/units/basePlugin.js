@@ -26,15 +26,16 @@ class BasePlugin {
       return;
     }
 
-    const npmCmd = process.platform === 'win32' ? 'cnpm.cmd' : 'cnpm';
+    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
-    const result = spawnSync(npmCmd, ['install'], {
+    const result = spawnSync(npmCmd, ['install', '--no-audit', '--no-fund'], {
       cwd: this.path,
       stdio: 'inherit'
     });
 
     if (result.error || result.status !== 0) {
-      throw new Error(`Failed to install dependencies for ${(this.path)} - Err: ${result.error.message}`);
+      const errMsg = result.error ? result.error.message : `exit code ${result.status}`;
+      throw new Error(`Failed to install dependencies for ${(this.path)} - Err: ${errMsg}`);
     }
   }
 }
