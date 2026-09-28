@@ -236,11 +236,8 @@ export default defineComponent({
                     task_id: task_id
                 }).then((res2) => {
                     if (res2.status) {
+                        // 不立即跳转：书籍出现在首页"下载任务"卡片，元数据就绪后点击即可阅读
                         this.$g.tipbox.success(this.$t('download.reading_started'));
-                        this.$router.push({
-                            path: '/reader',
-                            query: { task_id: task_id, mode: 'on_demand' }
-                        });
                     } else {
                         this.$g.tipbox.error(this.$t(res2.msg, res2.i18n));
                     }

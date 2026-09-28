@@ -41,7 +41,7 @@ class EnglishLanguagePlugin extends LanguagePlugin {
                 add_to_col: "Operation",
                 add_to_task: "Add",
                 read_now: "Read",
-                reading_started: "On-demand reading started",
+                reading_started: "Added to on-demand reading, open it from home",
                 load_more: "Load more",
             },
             reader: {

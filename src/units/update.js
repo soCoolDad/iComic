@@ -191,7 +191,12 @@ class UpdateSystem {
 
             // 同步目录 (使用 --delete)
             await runCommand('rsync', ['-a', '--delete', `${sourceDir}/src/`, `${CONFIG.rootDir}/src/`], CONFIG.rootDir);
-            await runCommand('rsync', ['-a', '--delete', `${sourceDir}/configs/`, `${CONFIG.rootDir}/configs/`], CONFIG.rootDir);
+
+            // configs 目录：只同步 system.json 与内置插件，保护用户数据（db/library/用户插件）
+            await runCommand('rsync', ['-a', `${sourceDir}/configs/system.json`, `${CONFIG.rootDir}/configs/system.json`], CONFIG.rootDir);
+            for (const plugin of ['cbz_file_parse', 'ictz_file_parse', 'lang-en', 'lang-zh-cn']) {
+                await runCommand('rsync', ['-a', '--delete', `${sourceDir}/configs/plugin/${plugin}/`, `${CONFIG.rootDir}/configs/plugin/${plugin}/`], CONFIG.rootDir);
+            }
 
             // 特殊处理 web 目录 (保留 node_modules)
             await runCommand('rsync', [
@@ -236,12 +241,20 @@ class UpdateSystem {
         setTimeout(() => {
             // 改为使用PM2重启
             try {
-                spawn('pm2', ['reload', 'all', '--update-env'], { stdio: 'inherit' });
+                const child = spawn('pm2', ['reload', 'all', '--update-env'], { stdio: 'inherit' });
+                // 非 PM2 环境（本机直接 node 启动）spawn 会报 ENOENT：
+                // 提示手动重启并正常退出，避免未捕获异常
+                child.on('error', () => {
+                    console.log('update', '非 PM2 环境，更新完成，请手动重启应用加载新版本');
+                    process.exit(0);
+                });
+                child.on('close', () => {
+                    process.exit(0);  // 确保进程退出
+                });
             } catch (e) {
                 console.error('PM2重启失败:', e.message);
                 process.exit(1);
             }
-            process.exit(0);  // 确保进程退出
         }, 1000);
 
         return { status: true, msg: '即将重启...' };

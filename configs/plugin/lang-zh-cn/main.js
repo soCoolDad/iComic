@@ -41,7 +41,7 @@ class ChineseLanguagePlugin extends LanguagePlugin {
                 add_to_col: "操作",
                 add_to_task: "添加",
                 read_now: "阅读",
-                reading_started: "开始按需阅读",
+                reading_started: "已加入按需阅读，可在首页打开",
                 load_more: "加载更多",
             },
             reader: {
