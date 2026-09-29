@@ -1,6 +1,14 @@
 const fs = require('fs');
 const path = require('path');
+
+// 单个文件的解析超时：插件的 parseFile 只有「成功回调」和「失败回调」两条出口，
+// 若两个都不调用，library.status 会永久停在 1（前端一直显示“正在解析”）
+const PARSE_TIMEOUT_MS = 10 * 60 * 1000;
+
 class library {
+    // 正在解析中的 library id：同一文件重复点击解析时，两个 parseFile 会互相覆写 config.json 与 status
+    parsingLibraries = new Set();
+
     init(libraryDir) {
         //
         this.libraryDir = libraryDir
@@ -210,8 +218,33 @@ class library {
             return { status: false, msg: "server.no_file" };
         }
 
+        // 并发锁：同一文件重复点击解析时，两个 parseFile 会互相覆写 config.json 与 status。
+        // 已在解析中就直接返回，不重复启动
+        if (this.parsingLibraries.has(library_id)) {
+            console.log('parse', library.name, 'already parsing, skip');
+            return { status: true, msg: "server.parse_begin" };
+        }
+        this.parsingLibraries.add(library_id);
+
         // 将数据库状态改为1（解析中）
         helpers.db_query.run('UPDATE library SET status = 1 WHERE id = ?', [library_id]);
+
+        // 兜底超时：插件若一个回调都不调用，status 会永久停在 1
+        let settled = false;
+        const parse_timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            console.log('parse', library.name, 'timeout');
+            helpers.db_query.run('UPDATE library SET status = 3 WHERE id = ?', [library_id]);
+            this.parsingLibraries.delete(library_id);
+        }, PARSE_TIMEOUT_MS);
+
+        // 收尾：标记已结束、清定时器、释放并发锁
+        const settle = () => {
+            settled = true;
+            clearTimeout(parse_timer);
+            this.parsingLibraries.delete(library_id);
+        };
 
         //插件执行结果状态
         let plugin_result_error = null;
@@ -226,29 +259,34 @@ class library {
                         try {
                             fs.writeFileSync(library.config_path, JSON.stringify(config, null, 2), 'utf-8');
                         } catch (e) {
+                            settle();
                             helpers.db_query.run('UPDATE library SET status = 3 WHERE id = ?', [library_id]);
                             console.log('write config.json error:', e);
                             return;
                         }
                         // 解析成功，将状态改为2
                         console.log('parse', library.name, 'success');
+                        settle();
                         //更新数据库(name,page_count,author,description,status)
                         helpers.db_query.run('UPDATE library SET name = ?,page_count = ?,author = ?,description = ?,status = ? WHERE id = ?', [config.name, config.page_count, config.author, config.description, 2, library_id]);
                         //helpers.db_query.run('UPDATE library SET status = 2 WHERE id = ?', [library_id]);
                     } else {
                         // 解析失败，将状态改为3
                         console.log("parse", "error", 'config is empty');
+                        settle();
                         helpers.db_query.run('UPDATE library SET status = 3 WHERE id = ?', [library_id]);
                     }
                 },
                 (errMsg) => {
                     // 解析失败，将状态改为3
                     console.log("parse", "error", errMsg);
+                    settle();
                     helpers.db_query.run('UPDATE library SET status = 3 WHERE id = ?', [library_id]);
                 }
             );
         } catch (error) {
             plugin_result_error = error;
+            settle();
             console.log("parseAllBySupportFile", "error", error);
         }
 
@@ -266,16 +304,17 @@ class library {
 
         let parseCount = 0;
         for (const library of libraries) {
-            // 根据library.path来获取后缀名
-            const ext = path.extname(library.path);
+            // 根据library.path来获取后缀名（统一转小写，否则 a.CBZ 这类大写后缀会被静默跳过）
+            const ext = path.extname(library.path || '').toLowerCase();
             // 获取所有type为parser的插件
             const plugs = helpers.plugin.getPluginsByType("parser");
 
             //console.log(ext, library.path);
 
             for (const plug of plugs) {
-                // 判断插件是否支持该后缀
-                if (plug.support_file.includes(ext)) {
+                // 判断插件是否支持该后缀（插件声明的大小写同样按小写比较）
+                if (Array.isArray(plug.support_file) &&
+                    plug.support_file.some(s => String(s).toLowerCase() === ext)) {
                     parseCount++;
                     this.parseByPluginId(helpers, library.id, plug.id);
                     break;

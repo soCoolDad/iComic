@@ -188,7 +188,7 @@ class PageDownloader {
 
             // 获取page详情（最多重试5次）
             let page_detail;
-            let retry_count = Number(this.plugin.config?.retry_count) || 5;
+            let retry_count = Number(this.plugin?.config?.retry_count) || 5;
             for (let j = 0; j < retry_count; j++) {
                 try {
                     page_detail = await this.plugin.getPageDetail(page);
@@ -484,7 +484,7 @@ class download_task {
 
         this.set_status(1);
 
-        let retry_count = Number(this.plugin.config?.retry_count) || 5;
+        let retry_count = Number(this.plugin?.config?.retry_count) || 5;
         //循环获取详情防止报错
         for (let i = 0; i < retry_count; i++) {
             try {
@@ -533,7 +533,7 @@ class download_task {
             //处理封面图
             console.log("begin download cover:", book_detail.cover_image);
 
-            let cover_retry_count = Number(this.plugin.config?.retry_count) || 5;
+            let cover_retry_count = Number(this.plugin?.config?.retry_count) || 5;
             let result = null;
             //循环获取缩略图防止报错
             for (let i = 0; i < cover_retry_count; i++) {
@@ -623,7 +623,7 @@ class download_task {
             let concurrency = 1;
             let completed = 0;
 
-            concurrency = (Number(this.plugin.config?.merge_concurrency) || cpu_count);
+            concurrency = (Number(this.plugin?.config?.merge_concurrency) || cpu_count);
             concurrency = Math.min(concurrency, cpu_count);
 
             const limit = pLimit(concurrency);
@@ -782,7 +782,7 @@ class download_task {
 
         this.set_status(1);
 
-        let retry_count = Number(this.plugin.config?.retry_count) || 5;
+        let retry_count = Number(this.plugin?.config?.retry_count) || 5;
         for (let i = 0; i < retry_count; i++) {
             try {
                 book_detail = await this.plugin.getDetail(this.search_result);
@@ -812,7 +812,7 @@ class download_task {
         // 下载封面
         let cover_image_path = path.join(this.tmp_dir, "0.part");
         if (!fs.existsSync(cover_image_path)) {
-            let cover_retry_count = Number(this.plugin.config?.retry_count) || 5;
+            let cover_retry_count = Number(this.plugin?.config?.retry_count) || 5;
             let result = null;
             for (let i = 0; i < cover_retry_count; i++) {
                 try {
@@ -950,7 +950,7 @@ class download_task {
         let page = this.book_meta.pages[pageIndex];
 
         let page_detail;
-        let retry_count = Number(this.plugin.config?.retry_count) || 5;
+        let retry_count = Number(this.plugin?.config?.retry_count) || 5;
         for (let i = 0; i < retry_count; i++) {
             try {
                 page_detail = await this.plugin.getPageDetail(page);
@@ -1079,7 +1079,7 @@ class download_task {
 
         // 重新拉取详情（插件返回失败时重试，异常直接返回，保证接口尽快响应）
         let book_detail;
-        let retry_count = Math.min(Number(this.plugin.config?.retry_count) || 5, 2);
+        let retry_count = Math.min(Number(this.plugin?.config?.retry_count) || 5, 2);
         for (let i = 0; i < retry_count; i++) {
             try {
                 book_detail = await this.plugin.getDetail(this.search_result);
@@ -1421,6 +1421,13 @@ class download_task {
     }
 
     async doMergeAndFinish() {
+        // 服务重启 / 插件被卸载后 this.plugin 可能为空，直接调用会抛 TypeError
+        if (!this.plugin) {
+            this.set_status(3);
+            this.errors.push(`Plugin[${this.plugin_id}]not found`);
+            return;
+        }
+
         let save_file_path = path.join(this.save_dir, this.name + (await this.plugin.saveFileExtension()));
 
         if (!fs.existsSync(this.tmp_dir)) {
@@ -1434,7 +1441,7 @@ class download_task {
 
         let part_zip = new yazl.ZipFile();
         let cpu_count = os.cpus().length;
-        let concurrency = Math.min(Number(this.plugin.config?.merge_concurrency) || cpu_count, cpu_count);
+        let concurrency = Math.min(Number(this.plugin?.config?.merge_concurrency) || cpu_count, cpu_count);
         const limit = pLimit(concurrency);
 
         try {

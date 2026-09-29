@@ -45,8 +45,6 @@ class block_reader {
         const page = req.query.page;
         const block = req.query.block;
 
-        //await new Promise(resolve => setTimeout(resolve, 1000 * 60));
-
         if (library_id && page && block && plugin_id) {
             let plugin = helpers.plugin.getPlugin(plugin_id);
             let library = helpers.db_query.get('SELECT path,config_path FROM library WHERE id = ?', [library_id]);
@@ -78,7 +76,19 @@ class block_reader {
                 return { status: false, msg: "server.no_plugin" };
             }
 
-            return await plugin.parsePageBlock(library_path, library_config_path, page, block);
+            // 插件抛错会让请求直接 500，这里兜住并返回可读错误
+            try {
+                return await plugin.parsePageBlock(library_path, library_config_path, page, block);
+            } catch (error) {
+                console.log("parse", "block", "error", error);
+                return {
+                    status: false,
+                    msg: "server.error",
+                    i18n: {
+                        msg: error.message
+                    }
+                };
+            }
         } else {
             return {
                 status: false,

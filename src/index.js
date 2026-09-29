@@ -118,7 +118,12 @@ let pluginDir = path.join(configDir, "plugin");
 if (fs.existsSync(pluginDir) === false) {
     fs.mkdirSync(pluginDir, { recursive: true });
 }
-helpers.plugin.init(pluginDir);
+// 插件是异步加载的：把 init 的 Promise 挂到 helpers 上，由路由在处理请求前 await。
+// CommonJS 顶层不能 await，原先的 fire-and-forget 会让启动瞬间的请求命中
+// 「插件还没加载完」而报 server.no_plugin
+helpers.plugin.ready = helpers.plugin.init(pluginDir).catch(e => {
+    console.error("init plugin error:", e);
+});
 console.log("init", "plugin dir:", pluginDir);
 
 //初始化库
@@ -142,6 +147,11 @@ app.all('/api/:module/:method', async (req, res) => {
 
     if (mod && typeof mod[method] === 'function') {
         try {
+            // 等待插件就绪后再处理请求（Promise 已 settle 时 await 只有微任务开销）
+            if (helpers.plugin.ready) {
+                await helpers.plugin.ready;
+            }
+
             // 传递 helpers 给每个 API 方法
             const result = await mod[method](req, res, helpers)
 
