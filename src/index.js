@@ -78,7 +78,10 @@ app.use((req, res, next) => {
     const apiKey = process.env.ICOMIC_API_KEY;
     if (!apiKey) return next();
     if (req.path.startsWith('/api/') && req.method !== 'OPTIONS') {
-        const providedKey = req.headers['x-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
+        // EventSource（SSE 长连接）无法自定义请求头，因此额外接受 ?api_key= 传参
+        const providedKey = req.headers['x-api-key']
+            || req.headers['authorization']?.replace(/^Bearer\s+/i, '')
+            || req.query.api_key;
         if (providedKey !== apiKey) {
             return res.status(401).json({ status: false, msg: 'Unauthorized: invalid API key' });
         }
@@ -154,6 +157,9 @@ app.all('/api/:module/:method', async (req, res) => {
 
             // 传递 helpers 给每个 API 方法
             const result = await mod[method](req, res, helpers)
+
+            // 接口已自行接管响应（如 SSE 长连接），不能再写 JSON
+            if (res.headersSent) return;
 
             if (result !== undefined) {
                 // 如果返回的是json对象

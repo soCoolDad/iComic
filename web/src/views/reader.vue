@@ -267,6 +267,8 @@ export default defineComponent({
             server_queued_pages: [] as number[],
             progress_timer: null as any,
             download_timer: null as any,
+            // 任务事件长连接的取消句柄（SSE）；为 null 表示当前走降级轮询
+            task_event_stream: null as any,
             // 目录刷新（按需模式）：打开阅读器时拉最新目录，差异弹窗确认后应用并标注新页
             new_page_from: -1,
             catalog_update: null as any,
@@ -281,7 +283,7 @@ export default defineComponent({
         this.onload();
     },
     beforeUnmount() {
-        this.stopPolling();
+        this.stopTaskUpdates();
         this.stopProgressPolling();
         this.stopCascaderWidthWatch();
     },
@@ -581,70 +583,50 @@ export default defineComponent({
                 this.catalog_updating = false;
             }
         },
+        // 启动任务状态更新：优先用长连接（服务端有变化就推），不可用时退回定时轮询
         startPolling() {
-            this.stopPolling();
+            this.stopTaskUpdates();
+            this.startEventStream();
+        },
+        // 订阅任务事件长连接：断线由浏览器自动重连；
+        // 长时间收不到任何数据（代理缓冲/接口不可用）时退回轮询
+        startEventStream() {
+            this.task_event_stream = this.$g.sse.subscribe(
+                `/api/download_task/events?task_id=${this.task_id}`,
+                {
+                    onStatus: (data: any) => this.applyPageStatus(data),
+                    onProgress: (data: any) => this.applyPageProgress(data),
+                    onDeleted: () => this.stopTaskUpdates(),
+                    onFallback: () => {
+                        this.task_event_stream = null;
+                        this.startPollingFallback();
+                    }
+                }
+            );
+        },
+        stopEventStream() {
+            if (this.task_event_stream) {
+                this.task_event_stream();
+                this.task_event_stream = null;
+            }
+        },
+        // 长连接不可用时的兜底：恢复定时轮询
+        startPollingFallback() {
+            if (this.download_timer) return;
+
             this.download_timer = setInterval(() => {
                 this.$g.http.send(`/api/download_task/getPageStatus?task_id=${this.task_id}`, 'get').then((res) => {
                     if (!res.status) {
-                        // 任务不存在（已删除或服务异常），停止轮询
-                        this.stopPolling();
+                        // 任务不存在（已删除或服务异常），停止更新
+                        this.stopTaskUpdates();
                         return;
                     }
-                    let data = res.data;
-                    let prevCount = this.downloaded_pages.length;
-                    this.downloaded_pages = data.downloaded_pages || [];
-                    this.server_downloading_pages = data.downloading_pages || [];
-                    this.server_queued_pages = data.queued_pages || [];
-                    this.page_block_counts = data.page_block_counts || [];
-
-                    // 目录标题有更新（新页下载后）时同步章节列表
-                    if ((data.page_titles || []).length > 0 &&
-                        JSON.stringify(data.page_titles) !== JSON.stringify(this.page_titles)) {
-                        this.page_titles = data.page_titles;
-                        this.file_page_list = this.file_page_list.map((item, i) => ({
-                            title: this.page_titles[i] || item.title,
-                            region: item.region
-                        }));
-                    }
-
-                    // 插件未声明 content_type 时，类型要从已下载分片推断，
-                    // 推断结果可能晚于首次加载，变化后重新按正确方式渲染
-                    if (data.content_type && this.plugin_content_type !== data.content_type) {
-                        this.plugin_content_type = data.content_type;
-                        this.initItems();
-                    }
-
-                    // 任务未开始/失败/暂停/删除：停止轮询并提示，避免无限空转
-                    const statusMsg = {
-                        0: 'download_task.col_status_wait',
-                        3: 'download_task.col_status_error',
-                        4: 'download_task.col_status_pause',
-                        5: 'download_task.col_status_delete'
-                    };
-                    if (statusMsg[data.status] !== undefined) {
-                        this.stopPolling();
-                        this.page_error = this.$t(statusMsg[data.status]);
-                        return;
-                    }
-
-                    // 元数据就绪后重建页面列表（"立即阅读"入口可能早于元数据返回）
-                    if ((data.total_pages || 0) > this.file_page_list.length) {
-                        this.buildOnDemandPages(data);
-                        this.initItems();
-                    }
-
-                    // 全部下载完成开始合并入库，停止轮询
-                    if (data.is_complete || data.status == 2) {
-                        this.stopPolling();
-                        return;
-                    }
-
-                    // 如果当前页新下载完成，刷新 items
-                    if (this.downloaded_pages.length > prevCount && this.downloaded_pages.includes(this.chapter_index)) {
-                        this.initItems();
-                    }
+                    this.applyPageStatus(res.data);
                 }).catch(() => { });
             }, 3000);
+
+            // 降级时若正在等某一页下载，页内进度也要跟着轮询
+            this.startProgressPolling();
         },
         stopPolling() {
             if (this.download_timer) {
@@ -652,18 +634,103 @@ export default defineComponent({
                 this.download_timer = null;
             }
         },
-        // 翻到未下载页：立即就地显示下载进度，完成后自动渲染
+        // 停止一切任务状态更新（长连接 + 降级轮询）
+        stopTaskUpdates() {
+            this.stopEventStream();
+            this.stopPolling();
+        },
+        // 任务状态落地：长连接推送与降级轮询共用同一份，避免两条路径行为分叉
+        applyPageStatus(data) {
+            let prevCount = this.downloaded_pages.length;
+            this.downloaded_pages = data.downloaded_pages || [];
+            this.server_downloading_pages = data.downloading_pages || [];
+            this.server_queued_pages = data.queued_pages || [];
+            this.page_block_counts = data.page_block_counts || [];
+
+            // 目录标题有更新（新页下载后）时同步章节列表
+            if ((data.page_titles || []).length > 0 &&
+                JSON.stringify(data.page_titles) !== JSON.stringify(this.page_titles)) {
+                this.page_titles = data.page_titles;
+                this.file_page_list = this.file_page_list.map((item, i) => ({
+                    title: this.page_titles[i] || item.title,
+                    region: item.region
+                }));
+            }
+
+            // 插件未声明 content_type 时，类型要从已下载分片推断，
+            // 推断结果可能晚于首次加载，变化后重新按正确方式渲染
+            if (data.content_type && this.plugin_content_type !== data.content_type) {
+                this.plugin_content_type = data.content_type;
+                this.initItems();
+            }
+
+            // 任务未开始/失败/暂停/删除：停止更新并提示，避免无限空转
+            const statusMsg = {
+                0: 'download_task.col_status_wait',
+                3: 'download_task.col_status_error',
+                4: 'download_task.col_status_pause',
+                5: 'download_task.col_status_delete'
+            };
+            if (statusMsg[data.status] !== undefined) {
+                this.stopTaskUpdates();
+                this.page_error = this.$t(statusMsg[data.status]);
+                return;
+            }
+
+            // 元数据就绪后重建页面列表（"立即阅读"入口可能早于元数据返回）
+            if ((data.total_pages || 0) > this.file_page_list.length) {
+                this.buildOnDemandPages(data);
+                this.initItems();
+            }
+
+            // 全部下载完成开始合并入库，停止更新
+            if (data.is_complete || data.status == 2) {
+                this.stopTaskUpdates();
+                return;
+            }
+
+            // 当前页下载完成：收起进度态并渲染
+            this.checkPageDownloadDone();
+
+            // 如果当前页新下载完成，刷新 items
+            if (this.downloaded_pages.length > prevCount && this.downloaded_pages.includes(this.chapter_index)) {
+                this.initItems();
+            }
+        },
+        // 页内进度 / 下载中 / 排队中状态落地：长连接的 progress 事件与降级轮询共用
+        applyPageProgress(data) {
+            this.server_page_progress = data.page_progress || {};
+            this.downloaded_pages = data.downloaded_pages || this.downloaded_pages;
+            this.server_downloading_pages = data.downloading_pages || this.server_downloading_pages;
+            this.server_queued_pages = data.queued_pages || this.server_queued_pages;
+            this.page_block_counts = data.page_block_counts || this.page_block_counts;
+
+            // 当前页下载完成：收起进度态并渲染
+            this.checkPageDownloadDone();
+        },
+        // 当前页下载完成：收起「下载中」并渲染该页
+        checkPageDownloadDone() {
+            if (this.page_downloading && this.downloaded_pages.includes(this.page_downloading_index)) {
+                this.page_downloading = false;
+                this.downloading_pages = this.downloading_pages.filter(p => p !== this.page_downloading_index);
+                this.stopProgressPolling();
+                this.initItems();
+            }
+        },
+        // 翻到未下载页：立即就地显示下载进度，完成后由事件推送触发渲染
         startPageDownload(pageIndex: number) {
             if (!this.downloading_pages.includes(pageIndex)) {
                 this.downloading_pages.push(pageIndex);
                 this.ensurePageDownloaded(pageIndex).then((ok) => {
+                    // 提交成功时不能在这里收尾：请求返回只代表「已排入下载」，
+                    // 真正的完成时机由任务事件推送（checkPageDownloadDone）决定。
+                    if (ok) return;
+
+                    // 提交失败（任务/页码/插件异常）：收起进度态，避免一直转圈
                     this.downloading_pages = this.downloading_pages.filter(p => p !== pageIndex);
                     if (this.page_downloading_index === pageIndex) {
                         this.page_downloading = false;
                         this.stopProgressPolling();
-                    }
-                    if (ok && this.chapter_index === pageIndex) {
-                        this.initItems();
                     }
                 });
             }
@@ -673,25 +740,17 @@ export default defineComponent({
             }
             this.startProgressPolling();
         },
-        // 下载期间每秒轮询页内块进度
+        // 下载期间刷新页内块进度：长连接已经在推就不需要轮询，仅降级路径启用
         startProgressPolling() {
             if (this.progress_timer) return;
+            if (this.task_event_stream) return;
+
             this.progress_timer = setInterval(() => {
                 this.$g.http.send(`/api/download_task/getPageStatus?task_id=${this.task_id}`, 'get').then((res) => {
                     if (!res.status) return;
-                    let data = res.data;
-                    this.server_page_progress = data.page_progress || {};
-                    this.downloaded_pages = data.downloaded_pages || this.downloaded_pages;
-                    this.server_downloading_pages = data.downloading_pages || this.server_downloading_pages;
-                    this.server_queued_pages = data.queued_pages || this.server_queued_pages;
-                    this.page_block_counts = data.page_block_counts || this.page_block_counts;
+                    this.applyPageProgress(res.data);
 
-                    // 当前页下载完成：渲染
-                    if (this.page_downloading && this.downloaded_pages.includes(this.page_downloading_index)) {
-                        this.page_downloading = false;
-                        this.stopProgressPolling();
-                        this.initItems();
-                    } else if (!this.page_downloading && this.downloading_pages.length === 0) {
+                    if (!this.page_downloading && this.downloading_pages.length === 0) {
                         this.stopProgressPolling();
                     }
                 }).catch(() => { });
@@ -703,6 +762,8 @@ export default defineComponent({
                 this.progress_timer = null;
             }
         },
+        // 提交单页下载请求：接口提交后立即返回，不等整页下载完成。
+        // 下载进度与完成状态由任务事件长连接推送，这样源站慢也不会把请求拖到超时。
         async ensurePageDownloaded(pageIndex: number): Promise<boolean> {
             if (this.downloaded_pages.includes(pageIndex)) return true;
 
@@ -711,31 +772,12 @@ export default defineComponent({
                 page: pageIndex
             });
 
-            if (res.status) {
-                // 刷新状态
-                let statusRes = await this.$g.http.send(`/api/download_task/getPageStatus?task_id=${this.task_id}`, 'get');
-                if (statusRes.status) {
-                    this.downloaded_pages = statusRes.data.downloaded_pages || [];
-                    this.server_downloading_pages = statusRes.data.downloading_pages || [];
-                    this.server_queued_pages = statusRes.data.queued_pages || [];
-                    this.page_block_counts = statusRes.data.page_block_counts || [];
-                    this.page_titles = statusRes.data.page_titles || this.page_titles;
-                    this.file_page_list = this.file_page_list.map((item, i) => ({
-                        title: this.page_titles[i] || item.title,
-                        region: item.region
-                    }));
-
-                    // 内容类型可能在首次加载后（分片下载完成）才推断出来，
-                    // 这里与轮询同步，避免本页先用图片模式渲染出占位/裂图
-                    if (statusRes.data.content_type && this.plugin_content_type !== statusRes.data.content_type) {
-                        this.plugin_content_type = statusRes.data.content_type;
-                    }
-                }
-                return true;
-            } else {
+            if (!res.status) {
                 this.$g.tipbox.error(this.$t(res.msg, res.i18n));
                 return false;
             }
+
+            return true;
         },
         initItems(btn_scrollTop = true) {
             let current_chapter = this.current_chapter;

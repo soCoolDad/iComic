@@ -169,19 +169,55 @@ export default defineComponent({
             list: [],
             ajaxWorking: false,
             autoRefreshTimer: null as number | null,
+            // 任务事件长连接的取消句柄（SSE）；为 null 表示当前走降级轮询
+            task_event_stream: null as any,
             showErrors: false
         };
     },
     mounted() {
         this.onload();
-        this.autoRefreshTimer = setInterval(() => {
-            this.onload();
-        }, 2000);
+        // 任务列表改为长连接订阅：有任务变化时服务端主动推，不再每 2 秒轮询一次
+        this.startEventStream();
     },
     unmounted() {
-        clearInterval(this.autoRefreshTimer);
+        this.stopTaskUpdates();
     },
     methods: {
+        // 订阅全部任务的事件流；长连接不可用时退回原来的定时轮询
+        startEventStream() {
+            this.task_event_stream = this.$g.sse.subscribe(
+                '/api/download_task/events',
+                {
+                    onTasks: (data: any) => {
+                        this.list = data || [];
+                    },
+                    onFallback: () => {
+                        this.task_event_stream = null;
+                        this.startPollingFallback();
+                    }
+                }
+            );
+        },
+        stopEventStream() {
+            if (this.task_event_stream) {
+                this.task_event_stream();
+                this.task_event_stream = null;
+            }
+        },
+        stopTaskUpdates() {
+            this.stopEventStream();
+            if (this.autoRefreshTimer) {
+                clearInterval(this.autoRefreshTimer);
+                this.autoRefreshTimer = null;
+            }
+        },
+        // 长连接不可用时的兜底：恢复定时轮询
+        startPollingFallback() {
+            if (this.autoRefreshTimer) return;
+            this.autoRefreshTimer = setInterval(() => {
+                this.onload();
+            }, 2000);
+        },
         showErrorBox(item) {
             this.curItem = item;
             this.showErrors = true;

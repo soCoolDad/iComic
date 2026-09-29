@@ -291,11 +291,13 @@ class download_task {
         let p = this.page_progress.get(pageIndex);
         if (p) p.total = total;
         else this.page_progress.set(pageIndex, { done: 0, total });
+        this.emitProgress();
     }
 
     incrementPageBlockDone(pageIndex) {
         let p = this.page_progress.get(pageIndex);
         if (p) p.done++;
+        this.emitProgress();
     }
     constructor(task_id, helpers, library_path, nextTask) {
         let task = helpers.db_query.get('SELECT * FROM download_task WHERE id=?', [task_id]);
@@ -395,6 +397,8 @@ class download_task {
     async set_status(status) {
         this.status = status;
         await this.helpers.db_query.run('UPDATE download_task SET status = ? WHERE id = ?', [status, this.id]);
+        // 状态变化是前端最关心的节点（下载中/暂停/失败/完成），推给长连接订阅者
+        this.emitStatus();
     }
 
     // 任务是否处于可下载状态（普通任务下载中=1；按需任务元数据就绪=6）
@@ -896,9 +900,65 @@ class download_task {
 
         let job = this.doDownloadSinglePage(pageIndex).finally(() => {
             this.downloading_pages.delete(pageIndex);
+            // 出队也要通知前端，否则进度条上这一页会一直停在「下载中」
+            this.emitProgress();
         });
         this.downloading_pages.set(pageIndex, job);
+        // 入队即通知：前端立刻把这一页标成「下载中」，不必等第一次进度上报
+        this.emitProgress();
         return job;
+    }
+
+    /**
+     * 单页下载的前置校验（同步返回错误对象；返回 null 表示可以下载）
+     */
+    checkPageDownloadable(pageIndex) {
+        if (!this.book_meta) {
+            return { status: false, msg: "server.book_meta_not_ready" };
+        }
+
+        // 服务重启后 scanAllTask 先于异步插件加载，这里按需补取插件引用
+        if (!this.plugin && this.plugin_id) {
+            this.plugin = this.helpers.plugin.getPlugin(this.plugin_id);
+        }
+        if (!this.plugin) {
+            return { status: false, msg: "server.no_plugin" };
+        }
+
+        if (!Number.isInteger(pageIndex) || pageIndex < 0 || pageIndex >= this.book_meta.page_count) {
+            return { status: false, msg: "server.invalid_page" };
+        }
+
+        return null;
+    }
+
+    /**
+     * 按需阅读：提交单页下载请求后**立即返回**，不等下载完成。
+     *
+     * 原先 downloadPage 接口要同步等到整页下载结束才响应，源站慢一点就超过
+     * 前端 30 秒请求超时，阅读页表现为「翻到未下载的页就超时报错」。
+     * 改成立即返回后，下载进度与完成状态由长连接（SSE）事件推送。
+     */
+    requestPageDownload(pageIndex) {
+        let invalid = this.checkPageDownloadable(pageIndex);
+        if (invalid) return invalid;
+
+        if (this.downloaded_pages.includes(pageIndex)) {
+            return { status: true, msg: "already downloaded", data: { page: pageIndex } };
+        }
+
+        // 已在下载中：不重复排队
+        if (this.downloading_pages.has(pageIndex)) {
+            return { status: true, msg: "server.download_processing", data: { page: pageIndex } };
+        }
+
+        // 提交即返回，不 await；失败只记录，状态变化照样由事件推送出去
+        this.downloadSinglePage(pageIndex).catch((e) => {
+            this.errors.push(`downloadSinglePage[${pageIndex}] Error: ${e.message}`);
+            console.error(`[on-demand] download page ${pageIndex} error:`, e.message);
+        });
+
+        return { status: true, msg: "server.download_requested", data: { page: pageIndex } };
     }
 
     async doDownloadSinglePage(pageIndex) {
@@ -940,6 +1000,9 @@ class download_task {
                     [this.page_complete_count, this.id]
                 );
 
+                // 断点恢复的分片同样算「这一页可读」，推状态让前端渲染
+                this.emitStatus();
+
                 await this.checkAndMerge();
 
                 return { status: true, msg: "already downloaded" };
@@ -973,6 +1036,7 @@ class download_task {
         let { errors } = await downloader.downloadAll(page_detail_blocks);
         // 页内所有块已结算，进度条使命完成
         this.page_progress.delete(pageIndex);
+        this.emitProgress();
 
         if (errors.length > 0) {
             page_zip.end();
@@ -1009,6 +1073,10 @@ class download_task {
             [this.page_complete_count, this.id]
         );
 
+        // 这一页已落盘，立刻推完整状态：前端收到就能渲染该页、进度条前进一段。
+        // 放在 checkAndMerge 之前，避免合并耗时长时前端还在等通知。
+        this.emitStatus();
+
         // 检查是否全部下载完成，自动合并
         await this.checkAndMerge();
 
@@ -1020,39 +1088,74 @@ class download_task {
     }
 
     /**
+     * 组装页面下载状态数据
+     * 接口返回（getPageStatus）与 SSE 推送（emitStatus）共用这一份，
+     * 保证「拉」和「推」两条路径的数据结构完全一致，不会分叉。
+     */
+    async buildPageStatusData() {
+        let meta = this.book_meta || {};
+        return {
+            task_id: this.id,
+            name: this.name,
+            status: this.status,
+            content_type: await this.getContentContentType(),
+            total_pages: meta.page_count || this.page_count || 0,
+            downloaded_pages: this.downloaded_pages,
+            downloaded_count: this.downloaded_pages.length,
+            // 正在下载 / 排队等待下载的页，供阅读器在进度条上区分状态
+            downloading_pages: Array.from(this.downloading_pages.keys()),
+            queued_pages: Array.from(this.prefetch_queued),
+            is_complete: this.is_complete,
+            page_block_counts: meta.page_block_counts || [],
+            // 目录列表：getDetail 返回并随 book_meta 持久化的每页标题
+            page_titles: (meta.pages || []).map(p => (p && p.title) || ''),
+            // 正在下载的页进度 { pageIndex: { done, total } }
+            page_progress: Object.fromEntries(this.page_progress),
+            book_meta: meta ? {
+                name: meta.name,
+                author: meta.author,
+                tags: meta.tags,
+                description: meta.description,
+                cover_image: meta.cover_image,
+                page_count: meta.page_count
+            } : null
+        };
+    }
+
+    /**
      * 获取页面下载状态
      */
     async getPageStatus() {
-        let meta = this.book_meta || {};
-        return {
-            status: true,
-            data: {
-                task_id: this.id,
-                name: this.name,
-                status: this.status,
-                content_type: await this.getContentContentType(),
-                total_pages: meta.page_count || this.page_count || 0,
-                downloaded_pages: this.downloaded_pages,
-                downloaded_count: this.downloaded_pages.length,
-                // 正在下载 / 排队等待下载的页，供阅读器在进度条上区分状态
-                downloading_pages: Array.from(this.downloading_pages.keys()),
-                queued_pages: Array.from(this.prefetch_queued),
-                is_complete: this.is_complete,
-                page_block_counts: meta.page_block_counts || [],
-                // 目录列表：getDetail 返回并随 book_meta 持久化的每页标题
-                page_titles: (meta.pages || []).map(p => (p && p.title) || ''),
-                // 正在下载的页进度 { pageIndex: { done, total } }
-                page_progress: Object.fromEntries(this.page_progress),
-                book_meta: meta ? {
-                    name: meta.name,
-                    author: meta.author,
-                    tags: meta.tags,
-                    description: meta.description,
-                    cover_image: meta.cover_image,
-                    page_count: meta.page_count
-                } : null
-            }
-        };
+        return { status: true, data: await this.buildPageStatusData() };
+    }
+
+    /**
+     * 推送完整状态快照（长连接）：页下载完成、任务状态变化等低频但重要的变化走这里，
+     * 前端收到后直接整份替换本地状态，不需要再回头请求接口。
+     */
+    emitStatus() {
+        if (!this.helpers?.download?.emitTaskEvent) return;
+
+        this.buildPageStatusData().then((data) => {
+            this.helpers.download.emitTaskEvent(this.id, 'status', data);
+            // 任务列表页订阅的全局频道同步刷新
+            this.helpers.download.emitTaskListEvent();
+        }).catch((e) => {
+            console.error('[on-demand] emit status error:', e.message);
+        });
+    }
+
+    /**
+     * 推送页内进度（长连接）：每块下载完成这类高频变化走这里，载荷只带进度相关字段。
+     */
+    emitProgress() {
+        if (!this.helpers?.download?.emitTaskEvent) return;
+
+        this.helpers.download.emitTaskEvent(this.id, 'progress', {
+            page_progress: Object.fromEntries(this.page_progress),
+            downloading_pages: Array.from(this.downloading_pages.keys()),
+            queued_pages: Array.from(this.prefetch_queued)
+        });
     }
 
     /**
@@ -1545,6 +1648,8 @@ class download_task {
         if (this.prefetch_queued.has(pageIndex)) return false;
         this.prefetch_queued.add(pageIndex);
         this.prefetch_queue.push(pageIndex);
+        // 入队即通知：进度条上这一页立刻显示为「排队中」
+        this.emitProgress();
         this.pumpPrefetchQueue();
         return true;
     }
@@ -1558,10 +1663,12 @@ class download_task {
                 if (this.status == 4 || this.status == 5) {
                     this.prefetch_queue = [];
                     this.prefetch_queued.clear();
+                    this.emitProgress();
                     break;
                 }
                 let pageIndex = this.prefetch_queue.shift();
                 this.prefetch_queued.delete(pageIndex);
+                this.emitProgress();
                 try {
                     await this.downloadSinglePage(pageIndex);
                 } catch (e) {
@@ -1589,6 +1696,73 @@ class download {
     helpers = null;
     library_path = null;
     tasks = [];
+
+    // —— 任务事件总线（SSE 长连接用）——
+    // task_id -> Set<listener>；键 '*' 是全局频道，任务列表页订阅它拿全部任务快照。
+    // 阅读页/任务列表页不再定时轮询接口，改为订阅这里推送的事件。
+    event_listeners = new Map();
+
+    /**
+     * 订阅任务事件
+     * @param {string|null} task_id 任务 id；传 null 订阅全局频道（任务列表变化）
+     * @param {Function} listener (type, payload) => void
+     * @returns {Function} 取消订阅
+     */
+    subscribeTaskEvents(task_id, listener) {
+        let key = task_id === null || task_id === undefined ? '*' : String(task_id);
+
+        if (!this.event_listeners.has(key)) {
+            this.event_listeners.set(key, new Set());
+        }
+        this.event_listeners.get(key).add(listener);
+
+        return () => {
+            let set = this.event_listeners.get(key);
+            if (!set) return;
+            set.delete(listener);
+            if (set.size === 0) this.event_listeners.delete(key);
+        };
+    }
+
+    /**
+     * 推送单个任务的事件（只发给订阅该 task_id 的连接）
+     * @param {string} task_id 任务 id
+     * @param {string} type 事件名：status（完整状态快照）/ progress（页内进度）/ deleted（任务已删除）
+     * @param {Object} payload 事件数据
+     */
+    emitTaskEvent(task_id, type, payload) {
+        if (task_id === null || task_id === undefined) return;
+
+        let set = this.event_listeners.get(String(task_id));
+        if (!set || set.size === 0) return;
+
+        for (let listener of Array.from(set)) {
+            try {
+                listener(type, payload);
+            } catch (e) {
+                console.error('[download] emit task event error:', e.message);
+            }
+        }
+    }
+
+    /**
+     * 推送任务列表事件（全局频道）：任何任务状态变化后调用，
+     * 由这里统一取 getAllTasks() 的结果下发，保证与接口返回同一份数据。
+     */
+    emitTaskListEvent() {
+        let set = this.event_listeners.get('*');
+        if (!set || set.size === 0) return;
+
+        let payload = this.getAllTasks().data;
+
+        for (let listener of Array.from(set)) {
+            try {
+                listener('tasks', payload);
+            } catch (e) {
+                console.error('[download] emit task list event error:', e.message);
+            }
+        }
+    }
 
     getAllTasks() {
         let tasks = this.tasks.map(task => {
@@ -1691,6 +1865,9 @@ class download {
                 this.nextTask();
             }));
 
+            // 新任务出现，任务列表页订阅的全局频道立刻刷新
+            this.emitTaskListEvent();
+
             return { status: true, msg: "server.success" }
         }
     }
@@ -1711,6 +1888,8 @@ class download {
                     task.errors.push(`beginOnDemand Error: ${e.message}`);
                     task.set_status(3);
                 });
+                // 任务列表页订阅的全局频道立刻刷新（元数据拉取是异步的，不等它）
+                this.emitTaskListEvent();
                 return { status: true, msg: "server.task_begin" };
             }
 
@@ -1719,6 +1898,7 @@ class download {
                 return { status: false, msg: "server.task_running" };
             } else {
                 task.begin();
+                this.emitTaskListEvent();
                 return { status: true, msg: "server.task_begin" };
             }
         } else {
@@ -1749,6 +1929,10 @@ class download {
         if (task) {
             task.delete();
             this.tasks = this.tasks.filter(task => task.id != task_id);
+
+            // 通知订阅该任务的长连接：任务没了，可以收工断开
+            this.emitTaskEvent(task_id, 'deleted', { task_id });
+            this.emitTaskListEvent();
 
             return { status: true, msg: "server.success" };
         } else {
