@@ -1,6 +1,6 @@
 {
   "name": "icomic",
-  "version": "0.0.53",
+  "version": "0.0.55",
   "description": "A Node.js application for managing and displaying comics.",
   "main": "src/index.js",
   "scripts": {

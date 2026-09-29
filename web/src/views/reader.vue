@@ -65,23 +65,23 @@
                         <el-button circle type="primary" @click="handlePrev" :icon="ArrowLeftBold"></el-button>
                     </el-col>
                     <el-col :span="12" :xs="16">
-                        <el-cascader style="width: 100%;" :options="options" :show-all-levels="false"
-                            v-model="cascader_value" placeholder="select chapter"
-                            @change="onSelectChange()">
-                            <template #default="{ data }">
-                                <span class="chapter_option">
-                                    <span class="chapter_label">{{ data.label }}</span>
-                                    <el-tag v-if="data.isNew" type="danger" size="small" effect="light"
-                                        class="new_tag">{{ $t('reader.new_page_tag') }}</el-tag>
-                                </span>
-                            </template>
-                        </el-cascader>
+                        <div ref="cascader_wrap" style="width: 100%;">
+                            <el-cascader style="width: 100%;" :options="options" :show-all-levels="false"
+                                v-model="cascader_value" placeholder="select chapter"
+                                popper-class="reader-cascader-popper" @visible-change="onCascaderVisible"
+                                @change="onSelectChange()">
+                                <template #default="{ data }">
+                                    <span class="chapter_option">
+                                        <span class="chapter_label">{{ data.label }}</span>
+                                        <span v-if="data.isNew" class="new_dot"></span>
+                                    </span>
+                                </template>
+                            </el-cascader>
+                        </div>
                         <div v-if="on_demand_mode" class="on-demand-progress">
-                            <div class="new_pages_hint" v-if="new_page_count > 0">
-                                <el-tag type="danger" size="small" effect="plain">{{ $t('reader.new_pages_hint', { count: new_page_count }) }}</el-tag>
-                            </div>
-                            <el-progress :percentage="downloadProgress" :stroke-width="10"
-                                :format="() => `${downloaded_pages_count}/${total_pages_count}`" />
+                            <PageProgressBar :total="total_pages_count" :downloaded="downloaded_pages"
+                                :downloading="server_downloading_pages" :queued="server_queued_pages" :height="10"
+                                :text-inside="true" :label="`${downloaded_pages_count}/${total_pages_count}`" />
                         </div>
                     </el-col>
                     <el-col :span="6" :xs="4">
@@ -139,6 +139,7 @@ import { defineComponent } from 'vue';
 import LazyImage from '../components/lazyImage.vue';
 //import type VirtualScroller from '../components/VirtualScroller.vue';
 import VirtualScroller from '../components/VirtualScroller.vue';
+import PageProgressBar from '../components/PageProgressBar.vue';
 
 interface file_item {
     id: string,
@@ -159,7 +160,8 @@ export default defineComponent({
     name: 'reader',
     components: {
         LazyImage,
-        VirtualScroller
+        VirtualScroller,
+        PageProgressBar
     },
     computed: {
         cascader_value: {
@@ -169,10 +171,6 @@ export default defineComponent({
             set(val) {
                 this.chapter_index = val[val.length - 1]; // 通常取最后一级的值
             }
-        },
-        downloadProgress() {
-            if (this.total_pages_count === 0) return 0;
-            return Math.round((this.downloaded_pages_count / this.total_pages_count) * 100);
         },
         downloaded_pages_count() {
             return this.downloaded_pages.length;
@@ -225,11 +223,6 @@ export default defineComponent({
         total_pages_count() {
             return this.file_page_list.length;
         },
-        // 本次打开后标注的新页数量（marked_from 之后的页）
-        new_page_count() {
-            if (this.new_page_from < 0) return 0;
-            return Math.max(0, this.total_pages_count - this.new_page_from);
-        },
         pageProgressPct() {
             let prog = this.server_page_progress[this.page_downloading_index];
             if (!prog || !prog.total) return 0;
@@ -269,13 +262,19 @@ export default defineComponent({
             page_downloading_index: -1,
             downloading_pages: [] as number[],
             server_page_progress: {} as any,
+            // 服务端上报的「正在下载」「排队中」页索引，进度条据此区分状态
+            server_downloading_pages: [] as number[],
+            server_queued_pages: [] as number[],
             progress_timer: null as any,
             download_timer: null as any,
             // 目录刷新（按需模式）：打开阅读器时拉最新目录，差异弹窗确认后应用并标注新页
             new_page_from: -1,
             catalog_update: null as any,
             show_catalog_update: false,
-            catalog_updating: false
+            catalog_updating: false,
+            // 目录下拉面板宽度同步的监听句柄（展开期间跟随触发框宽度）
+            cascader_resize_observer: null as any,
+            cascader_width_sync: null as any
         }
     },
     mounted() {
@@ -284,10 +283,61 @@ export default defineComponent({
     beforeUnmount() {
         this.stopPolling();
         this.stopProgressPolling();
+        this.stopCascaderWidthWatch();
     },
     methods: {
         onBack() {
             this.$router.go(-1);
+        },
+        // 目录下拉：把面板宽度同步为触发框（整个下拉控件）的宽度
+        // 面板被 teleport 到 body 且 Element 不会自动锁宽，只能运行时量。
+        // 注意：el-cascader 是多根组件，$refs 的 $el 是 fragment 锚点（文本节点），
+        // 拿不到尺寸，所以量的是外层包裹 div。
+        applyCascaderPopperWidth() {
+            const wrap = this.$refs.cascader_wrap;
+            const popper = document.querySelector('.reader-cascader-popper');
+            if (!(wrap instanceof Element) || !(popper instanceof Element)) return false;
+
+            const width = Math.round(wrap.getBoundingClientRect().width);
+            if (width > 0) popper.style.width = width + 'px';
+            return true;
+        },
+        // 展开期间挂监听：窗口缩放 / 布局尺寸变化时宽度实时跟随，不再只量一次
+        startCascaderWidthWatch() {
+            this.stopCascaderWidthWatch();
+
+            const sync = () => this.applyCascaderPopperWidth();
+            this.cascader_width_sync = sync;
+
+            if (typeof ResizeObserver !== 'undefined' && this.$refs.cascader_wrap instanceof Element) {
+                this.cascader_resize_observer = new ResizeObserver(sync);
+                this.cascader_resize_observer.observe(this.$refs.cascader_wrap);
+            }
+            window.addEventListener('resize', sync);
+        },
+        stopCascaderWidthWatch() {
+            if (this.cascader_resize_observer) {
+                this.cascader_resize_observer.disconnect();
+                this.cascader_resize_observer = null;
+            }
+            if (this.cascader_width_sync) {
+                window.removeEventListener('resize', this.cascader_width_sync);
+                this.cascader_width_sync = null;
+            }
+        },
+        onCascaderVisible(visible) {
+            if (!visible) {
+                this.stopCascaderWidthWatch();
+                return;
+            }
+
+            this.$nextTick(() => {
+                // 首次展开时 popper 可能还没挂到 body，补一帧兜底
+                if (!this.applyCascaderPopperWidth()) {
+                    requestAnimationFrame(() => this.applyCascaderPopperWidth());
+                }
+                this.startCascaderWidthWatch();
+            });
         },
         getBlockText(url) {
             //将所有/替换为_
@@ -460,6 +510,8 @@ export default defineComponent({
             } as any;
 
             this.downloaded_pages = data.downloaded_pages || [];
+            this.server_downloading_pages = data.downloading_pages || [];
+            this.server_queued_pages = data.queued_pages || [];
             this.page_block_counts = data.page_block_counts || [];
             // 目录标题：getDetail 时随 book_meta 持久化的每页标题，缺省回退"第N页"
             this.page_titles = data.page_titles || [];
@@ -541,6 +593,8 @@ export default defineComponent({
                     let data = res.data;
                     let prevCount = this.downloaded_pages.length;
                     this.downloaded_pages = data.downloaded_pages || [];
+                    this.server_downloading_pages = data.downloading_pages || [];
+                    this.server_queued_pages = data.queued_pages || [];
                     this.page_block_counts = data.page_block_counts || [];
 
                     // 目录标题有更新（新页下载后）时同步章节列表
@@ -628,6 +682,8 @@ export default defineComponent({
                     let data = res.data;
                     this.server_page_progress = data.page_progress || {};
                     this.downloaded_pages = data.downloaded_pages || this.downloaded_pages;
+                    this.server_downloading_pages = data.downloading_pages || this.server_downloading_pages;
+                    this.server_queued_pages = data.queued_pages || this.server_queued_pages;
                     this.page_block_counts = data.page_block_counts || this.page_block_counts;
 
                     // 当前页下载完成：渲染
@@ -660,6 +716,8 @@ export default defineComponent({
                 let statusRes = await this.$g.http.send(`/api/download_task/getPageStatus?task_id=${this.task_id}`, 'get');
                 if (statusRes.status) {
                     this.downloaded_pages = statusRes.data.downloaded_pages || [];
+                    this.server_downloading_pages = statusRes.data.downloading_pages || [];
+                    this.server_queued_pages = statusRes.data.queued_pages || [];
                     this.page_block_counts = statusRes.data.page_block_counts || [];
                     this.page_titles = statusRes.data.page_titles || this.page_titles;
                     this.file_page_list = this.file_page_list.map((item, i) => ({
@@ -806,7 +864,7 @@ export default defineComponent({
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: 10px;
         width: 100%;
 
         .chapter_label {
@@ -816,15 +874,14 @@ export default defineComponent({
             white-space: nowrap;
         }
 
-        .new_tag {
+        // 新增页标记：绿色圆点（固定在下拉行最右侧，与标题保持间距）
+        .new_dot {
             flex-shrink: 0;
-            margin-right: 8px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #67c23a;
         }
-    }
-
-    .new_pages_hint {
-        text-align: center;
-        margin-bottom: 4px;
     }
 
     // 目录更新确认弹窗
@@ -1038,6 +1095,47 @@ export default defineComponent({
             background-color: #fcfcfc;
             color: black;
         }
+    }
+}
+</style>
+
+<!-- 目录下拉（cascader）面板：宽度与触发框严格一致、去掉气泡小三角
+     面板被 teleport 到 body，scoped 样式命中不了，故用非 scoped 块 + popper-class 限定作用域 -->
+<style lang="scss">
+.reader-cascader-popper {
+    // 0. 兜底 + 让写入的宽度包含 1px 边框（popper 默认是 content-box，会导致比触发框宽 2px）
+    box-sizing: border-box;
+    min-width: 180px;
+
+    // 1. 去掉指向触发框的小三角
+    .el-popper__arrow {
+        display: none;
+    }
+
+    // 2. 面板铺满 popper（popper 宽度由 onCascaderVisible 运行时锁为触发框宽度）
+    .el-cascader-panel {
+        width: 100%;
+    }
+
+    // 3. 末列（页标题）：吃掉剩余宽度，保证面板总宽恒等于触发框宽度
+    .el-cascader-menu:last-child {
+        flex: 1 1 0;
+        width: auto;
+        min-width: 0;
+    }
+
+    // 4. 非末列（第一列：0-50 / 50-100 这类分组）：按自身文字宽度自适应，
+    //    不再与末列等分；覆盖 Element 默认的 min-width:180px。
+    //    flex-shrink 保留 1，只有位置不够时才收缩（标题会走省略号）
+    .el-cascader-menu:not(:last-child) {
+        flex: 0 1 auto;
+        width: max-content;
+        min-width: 0;
+    }
+
+    // 5. 选项允许收缩，保证标题省略号生效、不把面板顶宽
+    .el-cascader-node {
+        min-width: 0;
     }
 }
 </style>

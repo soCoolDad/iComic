@@ -15,11 +15,11 @@
                     <template #default="scope">
                         <!-- 按需下载任务 -->
                         <div v-if="scope.row.type == '2'" class="detail">
-                            <el-progress :text-inside="true" :stroke-width="20"
-                                :percentage="((scope.row.downloaded_count / scope.row.page_count) || 0) * 100"
-                                :status="(scope.row.page_count > 0 && scope.row.downloaded_count >= scope.row.page_count) || scope.row.is_complete ? 'success' : 'exception'">
-                                <span>{{ scope.row.downloaded_count }}/{{ scope.row.page_count }}</span>
-                            </el-progress>
+                            <PageProgressBar :total="scope.row.page_count || 0"
+                                :downloaded="scope.row.downloaded_pages || []"
+                                :downloading="scope.row.downloading_pages || []"
+                                :queued="scope.row.queued_pages || []" :height="20" :text-inside="true"
+                                :label="`${scope.row.downloaded_count || 0}/${scope.row.page_count || 0}`" />
                         </div>
                         <!-- 普通下载任务 -->
                         <div v-else class="detail">
@@ -157,8 +157,12 @@ interface task_item {
 }
 
 import { defineComponent } from 'vue';
+import PageProgressBar from '../components/PageProgressBar.vue';
 export default defineComponent({
     name: 'download_task',
+    components: {
+        PageProgressBar
+    },
     data() {
         return {
             curItem: {} as task_item,

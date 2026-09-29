@@ -1034,6 +1034,9 @@ class download_task {
                 total_pages: meta.page_count || this.page_count || 0,
                 downloaded_pages: this.downloaded_pages,
                 downloaded_count: this.downloaded_pages.length,
+                // 正在下载 / 排队等待下载的页，供阅读器在进度条上区分状态
+                downloading_pages: Array.from(this.downloading_pages.keys()),
+                queued_pages: Array.from(this.prefetch_queued),
                 is_complete: this.is_complete,
                 page_block_counts: meta.page_block_counts || [],
                 // 目录列表：getDetail 返回并随 book_meta 持久化的每页标题
@@ -1607,6 +1610,9 @@ class download {
                 result.is_complete = task.is_complete;
                 result.downloaded_pages = task.downloaded_pages;
                 result.downloaded_count = task.downloaded_pages.length;
+                // 正在下载 / 排队等待下载的页，供任务列表在进度条上区分状态
+                result.downloading_pages = Array.from(task.downloading_pages.keys());
+                result.queued_pages = Array.from(task.prefetch_queued);
                 result.book_meta = task.book_meta ? {
                     name: task.book_meta.name,
                     author: task.book_meta.author,
