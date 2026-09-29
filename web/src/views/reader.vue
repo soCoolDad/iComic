@@ -67,8 +67,19 @@
                     <el-col :span="12" :xs="16">
                         <el-cascader style="width: 100%;" :options="options" :show-all-levels="false"
                             v-model="cascader_value" placeholder="select chapter"
-                            @change="onSelectChange()"></el-cascader>
+                            @change="onSelectChange()">
+                            <template #default="{ data }">
+                                <span class="chapter_option">
+                                    <span class="chapter_label">{{ data.label }}</span>
+                                    <el-tag v-if="data.isNew" type="danger" size="small" effect="light"
+                                        class="new_tag">{{ $t('reader.new_page_tag') }}</el-tag>
+                                </span>
+                            </template>
+                        </el-cascader>
                         <div v-if="on_demand_mode" class="on-demand-progress">
+                            <div class="new_pages_hint" v-if="new_page_count > 0">
+                                <el-tag type="danger" size="small" effect="plain">{{ $t('reader.new_pages_hint', { count: new_page_count }) }}</el-tag>
+                            </div>
                             <el-progress :percentage="downloadProgress" :stroke-width="10"
                                 :format="() => `${downloaded_pages_count}/${total_pages_count}`" />
                         </div>
@@ -84,6 +95,35 @@
                 <el-progress type="circle" :percentage="pageProgressPct" :width="90" />
                 <div class="tips">{{ $t('reader.downloading_page') }}</div>
             </div>
+
+            <!-- 按需模式：打开阅读器拉取到最新目录后的确认弹窗，逐项列出差异，确认后才应用 -->
+            <el-dialog v-model="show_catalog_update" :title="$t('reader.catalog_update_title')" width="460px"
+                align-center :close-on-click-modal="false">
+                <template v-if="catalog_update?.append_only">
+                    <div class="catalog_tips">{{ $t('reader.catalog_new_pages', { count: catalog_update?.new_pages?.length || 0 }) }}</div>
+                    <div class="catalog_diff_list">
+                        <div class="diff_item" v-for="p in catalog_update?.new_pages || []" :key="p.index">
+                            <span class="idx">{{ p.index + 1 }}.</span>
+                            <span class="title">{{ p.title }}</span>
+                        </div>
+                    </div>
+                </template>
+                <template v-else>
+                    <el-alert type="warning" :closable="false" show-icon :title="$t('reader.catalog_structural_warning')"
+                        :description="$t('reader.catalog_structural_desc', { old: catalog_update?.old_total || 0, new: catalog_update?.total_pages || 0 })" />
+                    <div class="catalog_diff_list">
+                        <div class="diff_item" v-for="(c, i) in catalog_update?.changes || []" :key="i">
+                            <span class="idx">{{ c.index + 1 }}.</span>
+                            <span class="title">{{ c.old_title || '—' }} → {{ c.new_title || '—' }}</span>
+                        </div>
+                    </div>
+                </template>
+                <template #footer>
+                    <el-button @click="show_catalog_update = false">{{ $t('reader.catalog_update_cancel') }}</el-button>
+                    <el-button type="primary" :loading="catalog_updating" @click="onApplyCatalogUpdate">
+                        {{ $t('reader.catalog_update_apply') }}</el-button>
+                </template>
+            </el-dialog>
         </div>
     </div>
 </template>
@@ -154,10 +194,11 @@ export default defineComponent({
             const MAX_GROUP_SIZE = 50; // 每组最大数量
             let newOptions = [] as any[];
 
-            // 1. 生成原始选项列表
+            // 1. 生成原始选项列表（按需模式下新页带标注）
             const rawOptions = this.file_page_list.map((item, index) => ({
                 value: index,
-                label: item.title
+                label: item.title,
+                isNew: this.new_page_from >= 0 && index >= this.new_page_from
             }));
 
             // 2. 分组处理
@@ -183,6 +224,11 @@ export default defineComponent({
         },
         total_pages_count() {
             return this.file_page_list.length;
+        },
+        // 本次打开后标注的新页数量（marked_from 之后的页）
+        new_page_count() {
+            if (this.new_page_from < 0) return 0;
+            return Math.max(0, this.total_pages_count - this.new_page_from);
         },
         pageProgressPct() {
             let prog = this.server_page_progress[this.page_downloading_index];
@@ -224,7 +270,12 @@ export default defineComponent({
             downloading_pages: [] as number[],
             server_page_progress: {} as any,
             progress_timer: null as any,
-            download_timer: null as any
+            download_timer: null as any,
+            // 目录刷新（按需模式）：打开阅读器时拉最新目录，差异弹窗确认后应用并标注新页
+            new_page_from: -1,
+            catalog_update: null as any,
+            show_catalog_update: false,
+            catalog_updating: false
         }
     },
     mounted() {
@@ -382,6 +433,9 @@ export default defineComponent({
 
                 // 启动轮询刷新下载状态
                 this.startPolling();
+
+                // 每次打开按需阅读器时拉取一次源站最新目录（失败不打扰阅读，保持本地目录）
+                this.refreshCatalogCheck();
             } catch (err: any) {
                 this.page_error = err.message;
                 this.$g.tipbox.error(err.message);
@@ -424,6 +478,55 @@ export default defineComponent({
                 if (saved !== null && Number(saved) > 0 && Number(saved) < total) {
                     this.chapter_index = Number(saved);
                 }
+            }
+        },
+        // 打开阅读器后拉取源站最新目录，发现变化时弹窗逐项列出差异（用户确认前不写任何数据）
+        async refreshCatalogCheck() {
+            let res = await this.$g.http.send('/api/download_task/refreshCatalog', 'post', {
+                task_id: this.task_id
+            }).catch(() => null);
+
+            if (!res || !res.status || !res.data?.changed) return;
+
+            this.catalog_update = res.data;
+            this.show_catalog_update = true;
+        },
+        // 应用最新目录：入库并在目录下拉中标注新页，当前阅读进度保持不变
+        async onApplyCatalogUpdate() {
+            if (this.catalog_updating) return;
+            this.catalog_updating = true;
+
+            try {
+                let res = await this.$g.http.send('/api/download_task/refreshCatalog', 'post', {
+                    task_id: this.task_id,
+                    apply: true
+                });
+
+                if (!res.status) {
+                    this.$g.tipbox.error(this.$t(res.msg, res.i18n));
+                    return;
+                }
+
+                this.show_catalog_update = false;
+
+                if (!res.data?.changed) return;
+
+                this.new_page_from = Number.isInteger(res.data.marked_from) ? res.data.marked_from : -1;
+
+                let statusRes = await this.$g.http.send(`/api/download_task/getPageStatus?task_id=${this.task_id}`, 'get');
+                if (statusRes.status) {
+                    this.buildOnDemandPages(statusRes.data);
+
+                    // 当前章超出新目录（章节被删）时回收到最后一页
+                    if (this.chapter_index >= this.file_page_list.length) {
+                        this.chapter_index = Math.max(0, this.file_page_list.length - 1);
+                        this.initItems();
+                    }
+                }
+            } catch (err: any) {
+                this.$g.tipbox.error(err.message);
+            } finally {
+                this.catalog_updating = false;
             }
         },
         startPolling() {
@@ -563,6 +666,12 @@ export default defineComponent({
                         title: this.page_titles[i] || item.title,
                         region: item.region
                     }));
+
+                    // 内容类型可能在首次加载后（分片下载完成）才推断出来，
+                    // 这里与轮询同步，避免本页先用图片模式渲染出占位/裂图
+                    if (statusRes.data.content_type && this.plugin_content_type !== statusRes.data.content_type) {
+                        this.plugin_content_type = statusRes.data.content_type;
+                    }
                 }
                 return true;
             } else {
@@ -689,6 +798,69 @@ export default defineComponent({
             margin-top: 10px;
             font-size: 14px;
             color: #666;
+        }
+    }
+
+    // 目录下拉里的新页标注（下拉渲染在 body 层，靠 scoped 属性匹配）
+    .chapter_option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+
+        .chapter_label {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .new_tag {
+            flex-shrink: 0;
+            margin-right: 8px;
+        }
+    }
+
+    .new_pages_hint {
+        text-align: center;
+        margin-bottom: 4px;
+    }
+
+    // 目录更新确认弹窗
+    .catalog_tips {
+        font-size: 14px;
+        color: #353535;
+    }
+
+    .catalog_diff_list {
+        max-height: 220px;
+        overflow: auto;
+        margin-top: 10px;
+        border-top: 1px solid #f0f0f0;
+
+        .diff_item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 0;
+            font-size: 14px;
+            color: #353535;
+            border-bottom: 1px dashed #f0f0f0;
+
+            .idx {
+                flex-shrink: 0;
+                min-width: 2.5em;
+                text-align: right;
+                color: #999;
+            }
+
+            .title {
+                flex: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
         }
     }
 

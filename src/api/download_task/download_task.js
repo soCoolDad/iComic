@@ -65,6 +65,22 @@ class download_task {
         return await task.getPageStatus();
     }
 
+    /**
+     * 按需任务目录刷新：apply=false 只拉取最新目录并返回差异（前端弹窗确认），
+     * apply=true 把最新目录写入任务并返回新页标注起点
+     */
+    async refreshCatalog(req, res, helpers) {
+        let task_id = req.body.task_id;
+        let apply = req.body.apply === true;
+        let task = helpers.download.getTask(task_id);
+
+        if (!task) {
+            return { status: false, msg: "server.no_task" };
+        }
+
+        return await task.refreshCatalog(apply);
+    }
+
     async getCover(req, res, helpers) {
         let task_id = req.query.task_id;
         let task = helpers.download.getTask(task_id);

@@ -838,7 +838,7 @@ class download_task {
             }
         }
 
-        // 保存元数据
+        // 保存元数据（seen_page_count 记录用户看过的目录页数，用于下次打开时标注新增页）
         this.book_meta = {
             name: this.name,
             author: book_detail.author,
@@ -846,7 +846,8 @@ class download_task {
             description: book_detail.description,
             cover_image: book_detail.cover_image,
             page_count: page_count,
-            pages: pages
+            pages: pages,
+            seen_page_count: page_count
         };
 
         await this.helpers.db_query.run(
@@ -1052,6 +1053,128 @@ class download_task {
     }
 
     /**
+     * 按需下载：重新拉取源站最新目录并与本地 book_meta.pages 对比。
+     * apply=false 只返回差异（前端弹窗让用户确认，不写任何数据）；
+     * apply=true 应用新目录：pages/page_count 入库，seen_page_count 之前的页在
+     * 前端标注为"新"，任务回到按需可读状态（含已合并完成的书，新页可继续按需下载）
+     */
+    async refreshCatalog(apply = false) {
+        if (this.type != 2) {
+            return { status: false, msg: "server.not_on_demand" };
+        }
+
+        if (this.status == 5) {
+            return { status: false, msg: "server.task_delete" };
+        }
+
+        if (!this.plugin && this.plugin_id) {
+            this.plugin = this.helpers.plugin.getPlugin(this.plugin_id);
+        }
+        if (!this.plugin) {
+            return { status: false, msg: "server.no_plugin" };
+        }
+        if (!this.book_meta) {
+            return { status: false, msg: "server.book_meta_not_ready" };
+        }
+
+        // 重新拉取详情（插件返回失败时重试，异常直接返回，保证接口尽快响应）
+        let book_detail;
+        let retry_count = Math.min(Number(this.plugin.config?.retry_count) || 5, 2);
+        for (let i = 0; i < retry_count; i++) {
+            try {
+                book_detail = await this.plugin.getDetail(this.search_result);
+                if (book_detail?.status === false) {
+                    if (i == retry_count - 1) throw new Error(book_detail.msg);
+                } else {
+                    break;
+                }
+            } catch (error) {
+                return { status: false, msg: `Plugin[${this.plugin.name}][getDetail]失败:${error.message}` };
+            }
+        }
+
+        let old_pages = this.book_meta.pages || [];
+        let new_pages = (book_detail && Array.isArray(book_detail.pages)) ? book_detail.pages : [];
+        let title_of = (p, i) => (p && p.title) || `第${i + 1}页`;
+
+        // 按标题逐项比对新旧目录的公共前缀
+        let common = 0;
+        while (common < old_pages.length && common < new_pages.length &&
+            title_of(old_pages[common], common) === title_of(new_pages[common], common)) common++;
+
+        // 用户上次看过的目录页数：旧数据没有该字段时视为已知页全部看过
+        let seen = Number(this.book_meta.seen_page_count);
+        if (!Number.isInteger(seen) || seen < 0 || seen > old_pages.length) {
+            seen = old_pages.length;
+        }
+
+        let append_only = common >= old_pages.length;
+        let changed = !append_only || new_pages.length > old_pages.length;
+
+        if (!apply) {
+            let data = {
+                changed: changed,
+                append_only: append_only,
+                total_pages: new_pages.length
+            };
+
+            if (changed && append_only) {
+                data.new_pages = [];
+                for (let i = old_pages.length; i < new_pages.length; i++) {
+                    data.new_pages.push({ index: i, title: title_of(new_pages[i], i) });
+                }
+            } else if (changed) {
+                // 非追加变化（插入/删除/改名）：列出前20条差异供弹窗展示
+                data.old_total = old_pages.length;
+                data.changes = [];
+                let max_len = Math.max(old_pages.length, new_pages.length);
+                for (let i = common; i < max_len && data.changes.length < 20; i++) {
+                    let old_title = i < old_pages.length ? title_of(old_pages[i], i) : '';
+                    let new_title = i < new_pages.length ? title_of(new_pages[i], i) : '';
+                    // 两边都存在且标题相同的项不算差异
+                    if (old_title && new_title && old_title === new_title) continue;
+                    data.changes.push({ index: i, old_title, new_title });
+                }
+            }
+
+            return { status: true, msg: "server.success", data };
+        }
+
+        if (!changed) {
+            return { status: true, msg: "server.success", data: {
+                changed: false,
+                total_pages: old_pages.length,
+                marked_from: seen
+            } };
+        }
+
+        // 应用新目录
+        let marked_from = Math.min(seen, old_pages.length);
+        this.book_meta.pages = new_pages;
+        this.book_meta.page_count = new_pages.length;
+        // 本次已把新页展示给用户，更新"已看过"进度，下次打开只标注之后的新增
+        this.book_meta.seen_page_count = new_pages.length;
+
+        await this.helpers.db_query.run(
+            'UPDATE download_task SET book_meta = ?, page_count = ? WHERE id = ?',
+            [JSON.stringify(this.book_meta), new_pages.length, this.id]
+        );
+        this.page_count = new_pages.length;
+
+        // 回到按需可读状态：新增页才能继续按需下载（已合并完成的书也一样）
+        if (this.status != 6) {
+            this.status = 6;
+            await this.helpers.db_query.run('UPDATE download_task SET status = ? WHERE id = ?', [6, this.id]);
+        }
+
+        return { status: true, msg: "server.success", data: {
+            changed: true,
+            total_pages: new_pages.length,
+            marked_from: marked_from
+        } };
+    }
+
+    /**
      * 从 .part 文件读取块图片（分片已被合并清理时回退到合并后的 CBZ）
      */
     async getBlockFromPart(pageIndex, blockIndex) {
@@ -1177,15 +1300,27 @@ class download_task {
 
     /**
      * 获取按需任务的内容类型（image/text）。
-     * 插件声明了 content_type 直接用；否则从第一个已下载分片的块内容推断并缓存；还没有分片时返回 null
+     * 插件声明了 content_type 直接用；否则从已下载分片的块内容推断并缓存；
+     * 还没有分片时返回 null。
+     * 推断扫描临时目录里实际存在的页分片（不限于前5页：续读靠后章节时前面的页未必下载过），
+     * 0.part 是封面，参与推断会把文本书误判成图片
      */
     async getContentContentType() {
         if (this.plugin?.content_type) return this.plugin.content_type;
         if (this._inferred_content_type) return this._inferred_content_type;
         try {
-            for (let i = 1; i <= 5; i++) {
-                let part_path = path.join(this.tmp_dir, `${i}.part`);
-                if (!fs.existsSync(part_path)) continue;
+            let parts = fs.existsSync(this.tmp_dir)
+                ? fs.readdirSync(this.tmp_dir)
+                    .filter(file => {
+                        let num = parseInt(file, 10);
+                        return path.extname(file) == ".part" && Number.isInteger(num) && num >= 1;
+                    })
+                    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+                    .slice(0, 5)
+                : [];
+
+            for (let file of parts) {
+                let part_path = path.join(this.tmp_dir, file);
                 let zip = new StreamZip.async({ file: part_path });
                 try {
                     let entries = Object.values(await zip.entries()).filter(e => e.isFile);

@@ -59,6 +59,8 @@ class SearchPlugin extends BasePlugin {
     super(id, name, config, path);
     this.type = 'search';
     this.placeholder = config.placeholder;
+    // 配置里声明的内容类型（image/text）；未声明时服务端从已下载分片推断
+    this.content_type = config.content_type;
   }
 
   // 保存文件扩展
