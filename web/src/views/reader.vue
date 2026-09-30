@@ -1180,4 +1180,18 @@ export default defineComponent({
         min-width: 0;
     }
 }
+
+// 6. 小屏（≤600px，与阅读页移动端断点一致）：面板宽度改为跟随屏幕宽度（左右各留 8px）。
+//    触发框在手机上只占 54%~60% 屏宽（底栏 :xs="16" 那一列），而 cascade 是两列布局，
+//    第一列（0-50 这类分组）固定吃掉约 114px，剩下的给章节标题 → 320~480px 下标题只剩「第…」。
+//    这里必须用 !important：Element 是用内联 inset（bottom/left）+ 内联 width 定位的，
+//    作者样式表的 important 才能盖住内联普通声明；垂直位置（bottom:68px）保持不动。
+//    JS 那边 applyCascaderPopperWidth 写入的内联 width 在该断点下自动失效，大屏行为一字不改。
+@media screen and (max-width: 600px) {
+    .reader-cascader-popper {
+        width: auto !important;
+        left: 8px !important;
+        right: 8px !important;
+    }
+}
 </style>
