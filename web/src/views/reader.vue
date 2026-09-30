@@ -1175,6 +1175,21 @@ export default defineComponent({
         min-width: 0;
     }
 
+    // 4b. 分组列内边距收窄：Element 默认 .el-cascader-node 是 `0 30px 0 20px`，
+    //     再加 .el-cascader-node__label 的 `0 8px`，光内边距就吃掉 66px，
+    //     而文字（最宽的 "100-150"）只占约 47px → 分组列被撑到 113.67px。
+    //     收窄成 8/24 + label 2/2 → 83.67px，标题列多出 30px（375px 下 243 → 273）。
+    //     右侧的 24px 是必须保留的：箭头 .el-cascader-node__postfix 是 `right:10px` + 宽 14px，
+    //     正好占右起 10~24px，小到 24 以下箭头就会压到文字上。
+    //     注意只作用于 :not(:last-child)：单列（章节 ≤50 不分页）时命中不了本规则，行为不变。
+    .el-cascader-menu:not(:last-child) .el-cascader-node {
+        padding: 0 24px 0 8px;
+    }
+
+    .el-cascader-menu:not(:last-child) .el-cascader-node__label {
+        padding: 0 2px;
+    }
+
     // 5. 选项允许收缩，保证标题省略号生效、不把面板顶宽
     .el-cascader-node {
         min-width: 0;
