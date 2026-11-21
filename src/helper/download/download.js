@@ -851,7 +851,9 @@ class download_task {
             cover_image: book_detail.cover_image,
             page_count: page_count,
             pages: pages,
-            seen_page_count: page_count
+            seen_page_count: page_count,
+            // 重建元数据时保留已保存的续读进度（getDetail 重跑不丢阅读位置）
+            read_page_progress: this.book_meta?.read_page_progress || 0
         };
 
         await this.helpers.db_query.run(
@@ -1109,6 +1111,8 @@ class download_task {
             page_block_counts: meta.page_block_counts || [],
             // 目录列表：getDetail 返回并随 book_meta 持久化的每页标题
             page_titles: (meta.pages || []).map(p => (p && p.title) || ''),
+            // 按需阅读续读进度（随 book_meta 持久化，跨会话/换浏览器也能恢复）
+            read_page_progress: meta.read_page_progress || 0,
             // 正在下载的页进度 { pageIndex: { done, total } }
             page_progress: Object.fromEntries(this.page_progress),
             book_meta: meta ? {
@@ -1127,6 +1131,38 @@ class download_task {
      */
     async getPageStatus() {
         return { status: true, data: await this.buildPageStatusData() };
+    }
+
+    /**
+     * 按需阅读续读进度：写入 book_meta 并入库（getPageStatus / 长连接状态帧都会带上）。
+     * 之前进度只存在前端 sessionStorage，关掉标签页就丢，换浏览器更是无从恢复。
+     */
+    async saveReadProgress(pageIndex) {
+        if (!this.book_meta) {
+            return { status: false, msg: "server.book_meta_not_ready" };
+        }
+
+        if (!Number.isInteger(pageIndex) || pageIndex < 0 || pageIndex >= (this.book_meta.page_count || 0)) {
+            return { status: false, msg: "server.invalid_page" };
+        }
+
+        // 无变化不写库（目录下拉快速翻页会连发多次）
+        if (this.book_meta.read_page_progress === pageIndex) {
+            return { status: true, msg: "server.success" };
+        }
+
+        this.book_meta.read_page_progress = pageIndex;
+
+        try {
+            await this.helpers.db_query.run(
+                'UPDATE download_task SET book_meta = ? WHERE id = ?',
+                [JSON.stringify(this.book_meta), this.id]
+            );
+        } catch (e) {
+            return { status: false, msg: "server.error", i18n: { msg: e.message } };
+        }
+
+        return { status: true, msg: "server.success" };
     }
 
     /**

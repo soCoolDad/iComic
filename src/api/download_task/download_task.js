@@ -71,6 +71,25 @@ class download_task {
     }
 
     /**
+     * 保存按需阅读续读进度：随 book_meta 入库，跨会话/换浏览器也能从上次位置继续
+     */
+    async saveReadProgress(req, res, helpers) {
+        let task_id = req.body.task_id;
+        let page = Number(req.body.page);
+        let task = helpers.download.getTask(task_id);
+
+        if (!task) {
+            return { status: false, msg: "server.no_task" };
+        }
+
+        if (task.type != 2) {
+            return { status: false, msg: "server.not_on_demand" };
+        }
+
+        return task.saveReadProgress(page);
+    }
+
+    /**
      * 任务事件长连接（SSE），替代前端定时轮询：
      * - 带 task_id：订阅单个任务，推送 status / progress / deleted 事件
      * - 不带 task_id：订阅全部任务，推送 tasks 事件（任务列表快照）

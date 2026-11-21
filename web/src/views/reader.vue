@@ -268,9 +268,14 @@ export default defineComponent({
     },
     watch: {
         chapter_index(newVal) {
-            // 按需模式还没有 library 记录，进度先存本地，入库前也能续读
+            // 按需模式还没有 library 记录：先存本地（同标签页续读），
+            // 同时上报服务端随任务持久化（跨会话/换浏览器也能续读），失败静默不打扰阅读
             if (this.on_demand_mode) {
                 sessionStorage.setItem(`on_demand_${this.task_id}_chapter_index`, String(newVal));
+                this.$g.http.send('/api/download_task/saveReadProgress', 'post', {
+                    task_id: this.task_id,
+                    page: newVal
+                }).catch(() => { });
                 return;
             }
             this.send_read_progress(newVal);
@@ -576,11 +581,13 @@ export default defineComponent({
                 });
             }
 
-            // 首次拿到元数据时恢复上次阅读位置
+            // 首次拿到元数据时恢复上次阅读位置：
+            // 优先 sessionStorage（同标签页最新），没有再回退服务端持久化的进度（跨会话续读）
             if (this.chapter_index === 0) {
                 let saved = sessionStorage.getItem(`on_demand_${this.task_id}_chapter_index`);
-                if (saved !== null && Number(saved) > 0 && Number(saved) < total) {
-                    this.chapter_index = Number(saved);
+                let restored = (saved !== null && saved !== undefined) ? Number(saved) : Number(data.read_page_progress || 0);
+                if (Number.isInteger(restored) && restored > 0 && restored < total) {
+                    this.chapter_index = restored;
                 }
             }
         },
@@ -691,7 +698,9 @@ export default defineComponent({
         },
         // 任务状态落地：长连接推送与降级轮询共用同一份，避免两条路径行为分叉
         applyPageStatus(data) {
-            let prevCount = this.downloaded_pages.length;
+            // 记住推送前的已下载列表：判断「当前页是否新下载完成」要对比成员关系，
+            // 而不是数量增长——预载后续页完成同样会让数量增长，但不能因此重绘当前页
+            let prevDownloaded = this.downloaded_pages;
             this.downloaded_pages = data.downloaded_pages || [];
             this.server_downloading_pages = data.downloading_pages || [];
             this.server_queued_pages = data.queued_pages || [];
@@ -742,8 +751,9 @@ export default defineComponent({
             // 当前页下载完成：收起进度态并渲染
             this.checkPageDownloadDone();
 
-            // 如果当前页新下载完成，刷新 items
-            if (this.downloaded_pages.length > prevCount && this.downloaded_pages.includes(this.chapter_index)) {
+            // 当前页在本次推送中「新出现在已下载列表」才刷新 items；
+            // 预载页完成只会增加列表成员，当前页本就在列，不会触发这里
+            if (!prevDownloaded.includes(this.chapter_index) && this.downloaded_pages.includes(this.chapter_index)) {
                 this.initItems();
             }
         },
