@@ -17,7 +17,8 @@ class plugin {
                 placeholder: item.placeholder,
                 content_type: item.content_type,
                 need_install: item.need_install,
-                installed: fs.existsSync(path.join(item.path, "node_modules"))
+                installed: fs.existsSync(path.join(item.path, "node_modules")),
+                params: helpers.plugin.getPluginParams(item.id)
             });
         });
 
@@ -41,7 +42,8 @@ class plugin {
                 placeholder: item.placeholder,
                 content_type: item.content_type,
                 need_install: item.need_install,
-                installed: fs.existsSync(path.join(item.path, "node_modules"))
+                installed: fs.existsSync(path.join(item.path, "node_modules")),
+                params: helpers.plugin.getPluginParams(item.id)
             });
         });
 
@@ -67,7 +69,8 @@ class plugin {
                     placeholder: plugin.placeholder,
                     content_type: plugin.content_type,
                     need_install: plugin.need_install,
-                    installed: fs.existsSync(path.join(plugin.path, "node_modules"))
+                    installed: fs.existsSync(path.join(plugin.path, "node_modules")),
+                    params: helpers.plugin.getPluginParams(plugin.id)
                 }
             }
         } else {
@@ -76,6 +79,14 @@ class plugin {
                 msg: "server.no_plugin"
             }
         }
+    }
+
+    // 保存插件的自定义参数（插件页「参数」弹窗提交）
+    savePluginParams(req, res, helpers) {
+        let pluginId = req.body.plugin_id;
+        let params = req.body.params;
+
+        return helpers.plugin.savePluginParams(pluginId, params);
     }
 
     installPluginDependencies(req, res, helpers) {

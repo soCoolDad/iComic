@@ -14,6 +14,17 @@ const PLUGIN_LOAD_TIMEOUT_MS = 5000;
 const PLUGIN_CONFIG_INVALID = 'PLUGIN_CONFIG_INVALID';
 const PLUGIN_CLASS_MISSING = 'PLUGIN_CLASS_MISSING';
 
+// 插件「可调参数」白名单：宿主（下载/合并逻辑）运行时会读取的 config.json 字段。
+// 用户在插件页调整这些参数后存入独立的 plugin_params.json（而不是改插件目录里的
+// config.json）——改 config.json 会触发 chokidar 自动重载插件、且内置插件更新时会被
+// 发布包整体覆盖，用户自定义值会被静默重置
+const EDITABLE_PARAM_DEFS = {
+    page_concurrency: { min: 1, max: 64 },
+    block_concurrency: { min: 1, max: 64 },
+    merge_concurrency: { min: 1, max: 64 },
+    retry_count: { min: 0, max: 20 }
+};
+
 class PluginManager {
     constructor() {
         this.plugins = new Map(); // 存储加载的插件
@@ -25,6 +36,10 @@ class PluginManager {
     // 初始化插件管理器
     async init(pluginPath) {
         this.pluginPath = pluginPath;
+        // 用户自定义插件参数的存储文件（与 plugin 同级，即 CONFIG_DIR 下）
+        this.paramsStorePath = path.join(path.dirname(pluginPath), "plugin_params.json");
+        this.pluginParams = {}; // pluginId -> { 参数键: 自定义值 }
+        await this.loadParamsStore();
 
         //console.log(pluginPath);
 
@@ -78,6 +93,127 @@ class PluginManager {
                 await this.loadPlugin(fullPath);
             }
         }
+    }
+
+    // 读取用户自定义参数文件。文件缺失 / 非法时都按空处理（插件参数不是关键数据，
+    // 坏了不该影响插件正常加载）
+    async loadParamsStore() {
+        try {
+            const raw = await fs.readFile(this.paramsStorePath, 'utf-8');
+            const data = JSON.parse(raw);
+            this.pluginParams = (data && typeof data === 'object' && !Array.isArray(data)) ? data : {};
+        } catch (err) {
+            if (err.code !== 'ENOENT') {
+                console.log("load plugin_params.json error:", err.message);
+            }
+            this.pluginParams = {};
+        }
+    }
+
+    // 获取某个插件已保存的自定义参数（已做形状防御）
+    getUserParams(pluginId) {
+        const saved = this.pluginParams[pluginId];
+        return (saved && typeof saved === 'object' && !Array.isArray(saved)) ? saved : {};
+    }
+
+    // 汇总某插件的可调参数定义与当前值（只返回 config.json 里声明过的键）。
+    // value 取自定义值（无则取运行时值），default 是 config.json 的声明原值
+    getPluginParams(pluginId) {
+        const plugin = this.plugins.get(pluginId);
+        if (!plugin || !plugin.declaredParams) {
+            return [];
+        }
+
+        const declared = plugin.declaredParams;
+        const user = this.getUserParams(pluginId);
+        const params = [];
+
+        for (const [key, def] of Object.entries(EDITABLE_PARAM_DEFS)) {
+            if (declared[key] === undefined) continue;
+            params.push({
+                key: key,
+                value: (user[key] !== undefined ? user[key] : plugin.config[key]),
+                default: declared[key],
+                min: def.min,
+                max: def.max
+            });
+        }
+
+        return params;
+    }
+
+    // 保存插件的自定义参数并使其生效：
+    // 1. 持久化到 plugin_params.json（不写插件目录的 config.json，避免触发插件重载、
+    //    也避免内置插件更新时被发布包覆盖）
+    // 2. 更新内存中的 plugin.config —— 任务创建时经 getPlugin 拿当前实例，
+    //    并发参数对之后开始的任务立即生效；retry_count 每次重试动态读取，进行中任务也生效
+    async savePluginParams(pluginId, params) {
+        const plugin = this.plugins.get(pluginId);
+        if (!plugin) {
+            return { status: false, msg: "server.no_plugin" };
+        }
+
+        const declared = plugin.declaredParams || {};
+        if (!params || typeof params !== 'object' || Array.isArray(params)) {
+            return {
+                status: false,
+                msg: "server.param_error",
+                i18n: { msg: "params must be an object" }
+            };
+        }
+
+        const saved = this.getUserParams(pluginId);
+        const applied = {};
+
+        for (const [key, def] of Object.entries(EDITABLE_PARAM_DEFS)) {
+            if (params[key] === undefined) continue;
+            // 只允许调整 config.json 里声明过的参数：没声明的键对宿主无意义，
+            // 放行会让保存接口变成往插件配置里塞任意数字的口子
+            if (declared[key] === undefined) continue;
+
+            const num = Number(params[key]);
+            if (!Number.isInteger(num) || num < def.min || num > def.max) {
+                return {
+                    status: false,
+                    msg: "server.param_error",
+                    i18n: { msg: `${key} must be an integer between ${def.min} and ${def.max}` }
+                };
+            }
+
+            applied[key] = num;
+        }
+
+        // 等于声明值视为恢复默认：从自定义存储里移除（避免永远残留一条无意义的自定义记录）
+        for (const key of Object.keys(applied)) {
+            if (applied[key] === declared[key]) {
+                delete saved[key];
+            } else {
+                saved[key] = applied[key];
+            }
+        }
+
+        if (Object.keys(saved).length === 0) {
+            delete this.pluginParams[pluginId];
+        } else {
+            this.pluginParams[pluginId] = saved;
+        }
+
+        try {
+            await fs.writeFile(this.paramsStorePath, JSON.stringify(this.pluginParams, null, 4), 'utf-8');
+        } catch (err) {
+            return {
+                status: false,
+                msg: "server.save_failed",
+                i18n: { msg: err.message }
+            };
+        }
+
+        // 运行时立即生效；恢复默认的键同步回声明值
+        for (const key of Object.keys(applied)) {
+            plugin.config[key] = (saved[key] !== undefined ? saved[key] : declared[key]);
+        }
+
+        return { status: true, msg: "server.save_success" };
     }
 
     // 校验 config.json 的必填字段
@@ -159,6 +295,23 @@ class PluginManager {
 
             // 创建插件实例
             const plugin = new PluginClass(config.id, config.name, config, pluginDir);
+
+            // 记录 config.json 声明的可调参数原值（作为默认值），再把用户已保存的
+            // 自定义参数合并进运行时配置。合并在快照之后做，保证 declaredParams
+            // 始终是「插件声明值」而非「用户自定义值」
+            plugin.declaredParams = {};
+            for (const key of Object.keys(EDITABLE_PARAM_DEFS)) {
+                if (config[key] !== undefined) {
+                    plugin.declaredParams[key] = config[key];
+                }
+            }
+
+            const userParams = this.getUserParams(config.id);
+            for (const [key, value] of Object.entries(userParams)) {
+                if (plugin.declaredParams[key] !== undefined && Number.isInteger(value)) {
+                    plugin.config[key] = value;
+                }
+            }
 
             // parser 插件必须声明 support_file，否则 parseAllBySupportFile 会在
             // plug.support_file.includes(ext) 处抛 TypeError，连带整个「解析全部」失败

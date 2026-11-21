@@ -85,7 +85,17 @@
                         </div>
                     </el-col>
                     <el-col :span="6" :xs="4">
-                        <el-button circle type="primary" @click="handleNext" :icon="ArrowRightBold"></el-button>
+                        <div class="next_btn_wrap">
+                            <el-button circle type="primary" @click="handleNext" :icon="ArrowRightBold"></el-button>
+                            <!-- 预加载进度环：直接叠在按钮蓝色圆面上，白色弧线沿按钮边缘填充 -->
+                            <svg v-if="next_page_ring" class="next_page_ring"
+                                :class="{ spinning: next_page_ring.indeterminate }" viewBox="0 0 40 40"
+                                aria-hidden="true">
+                                <circle class="ring_track" cx="20" cy="20" r="17" pathLength="100" />
+                                <circle class="ring_arc" cx="20" cy="20" r="17" pathLength="100"
+                                    :stroke-dasharray="next_page_ring.indeterminate ? '25 75' : `${next_page_ring.pct} 100`" />
+                            </svg>
+                        </div>
                     </el-col>
                 </el-row>
             </div>
@@ -227,6 +237,33 @@ export default defineComponent({
             let prog = this.server_page_progress[this.page_downloading_index];
             if (!prog || !prog.total) return 0;
             return Math.min(100, Math.round((prog.done / prog.total) * 100));
+        },
+        // 下一页按钮上的预加载圆环状态：
+        // 已下载 → 不显示；有分片进度 → 按比例圆环；排队/刚开始下载 → 旋转圆环；
+        // 未在预载 → 不显示
+        next_page_ring() {
+            if (!this.on_demand_mode) return null;
+
+            let next = this.chapter_index + 1;
+            if (next < 0 || next >= this.file_page_list.length) return null;
+            if (this.downloaded_pages.includes(next)) return null;
+
+            let prog = this.server_page_progress[next];
+            if (prog && prog.total > 0) {
+                let pct = Math.min(100, Math.round((prog.done / prog.total) * 100));
+                // 0% 时零长度弧线不可见，用旋转圆环示意「已开始还没出块」
+                if (pct === 0) return { pct: 0, indeterminate: true };
+                return {
+                    pct: pct,
+                    indeterminate: false
+                };
+            }
+
+            let active = this.server_downloading_pages.includes(next)
+                || this.server_queued_pages.includes(next);
+            if (active) return { pct: 0, indeterminate: true };
+
+            return null;
         }
     },
     watch: {
@@ -276,7 +313,11 @@ export default defineComponent({
             catalog_updating: false,
             // 目录下拉面板宽度同步的监听句柄（展开期间跟随触发框宽度）
             cascader_resize_observer: null as any,
-            cascader_width_sync: null as any
+            cascader_width_sync: null as any,
+            // 预加载：边下边看时自动预载的后续页数（设置页 READER_PRELOAD_COUNT，0=关闭）
+            preload_count: 0,
+            // 本会话已提交过预载请求的页，避免状态推送反复触发同样的预载提交
+            preloaded_pages: [] as number[]
         }
     },
     mounted() {
@@ -471,10 +512,19 @@ export default defineComponent({
             this.page_loading = true;
 
             try {
-                let res = await this.$g.http.send(`/api/download_task/getPageStatus?task_id=${this.task_id}`, 'get');
+                // 预加载页数来自设置（system.json），与页状态并行读取；读取失败按 0 处理，不影响阅读
+                let [res, cfgRes] = await Promise.all([
+                    this.$g.http.send(`/api/download_task/getPageStatus?task_id=${this.task_id}`, 'get'),
+                    this.$g.http.send('/api/setting/sysConfig', 'get')
+                ]);
+
                 if (!res.status) {
                     this.page_error = this.$t(res.msg, res.i18n);
                     return;
+                }
+
+                if (cfgRes?.status) {
+                    this.preload_count = Number(cfgRes.data?.READER_PRELOAD_COUNT) || 0;
                 }
 
                 let data = res.data;
@@ -779,6 +829,32 @@ export default defineComponent({
 
             return true;
         },
+        // 预加载：当前页可读后，把后续 N 页提交进任务的串行预载队列（服务端去重）。
+        // 预载页的排队/下载进度由任务事件推送：顶部进度条展示整体状态，
+        // 「下一页」按钮圆环展示紧邻下一页的进度。预载失败静默——翻页时的按需下载仍然兜底
+        preloadNextPages() {
+            if (!this.on_demand_mode) return;
+
+            let count = this.preload_count;
+            if (!count || count <= 0) return;
+
+            let pages = [] as number[];
+            for (let p = this.chapter_index + 1; p <= this.chapter_index + count; p++) {
+                if (p >= this.file_page_list.length) break;
+                if (this.downloaded_pages.includes(p)) continue;
+                if (this.preloaded_pages.includes(p)) continue;
+
+                this.preloaded_pages.push(p);
+                pages.push(p);
+            }
+
+            if (pages.length === 0) return;
+
+            this.$g.http.send('/api/download_task/prefetch', 'post', {
+                task_id: this.task_id,
+                pages
+            }).catch(() => { });
+        },
         initItems(btn_scrollTop = true) {
             let current_chapter = this.current_chapter;
 
@@ -804,6 +880,8 @@ export default defineComponent({
                 this.$nextTick(() => {
                     this.items = image_urls;
                 });
+                // 当前页可读后按设置预载后续页（进度在「下一页」按钮圆环上呈现）
+                this.preloadNextPages();
                 return;
             }
 
@@ -1007,6 +1085,53 @@ export default defineComponent({
             padding: 0 20px;
 
             transition: bottom 0.2s ease-in-out;
+
+            // 下一页按钮的预载进度环：与按钮同尺寸，白色弧线直接压在蓝色圆面边缘
+            .next_btn_wrap {
+                position: relative;
+                display: inline-block;
+                vertical-align: middle;
+            }
+
+            .next_page_ring {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                transform: rotate(-90deg);
+
+                .ring_track {
+                    fill: none;
+                    stroke: rgba(255, 255, 255, 0.35);
+                    stroke-width: 3;
+                }
+
+                .ring_arc {
+                    fill: none;
+                    stroke: #ffffff;
+                    stroke-width: 3;
+                    stroke-linecap: round;
+                    transition: stroke-dasharray 0.3s ease;
+                }
+
+                // 排队中（还没有分片进度）：固定长度弧线旋转示意
+                &.spinning .ring_arc {
+                    transform-origin: center;
+                    animation: next_ring_spin 1.2s linear infinite;
+                }
+            }
+
+            @keyframes next_ring_spin {
+                from {
+                    transform: rotate(0deg);
+                }
+
+                to {
+                    transform: rotate(360deg);
+                }
+            }
         }
 
         .scroller {

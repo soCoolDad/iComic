@@ -60,6 +60,17 @@
                 </div>
             </div>
             <div class="sub_box">
+                <div class="sub_title">{{ $t('setting.preload_title') }}</div>
+                <div class="desc">{{ $t('setting.preload_info') }}</div>
+                <div class="desc">
+                    <el-input-number v-model="preload_count" :min="0" :max="20" :step="1" step-strictly></el-input-number>
+                </div>
+                <div class="buttons">
+                    <el-button round type="primary" :loading="ajaxWorking" @click="saveSystem('Preload')">{{
+                        $t('setting.save') }}</el-button>
+                </div>
+            </div>
+            <div class="sub_box">
                 <div class="sub_title">{{ $t('setting.version') }}</div>
                 <div class="desc">
                     <el-tag type="primary">{{ version }}</el-tag>
@@ -156,7 +167,9 @@ export default defineComponent({
             devices: [] as string[],
             clearCacheWorking: false,
             GITHUB_PAT: "",
-            HTTP_PROXY: ""
+            HTTP_PROXY: "",
+            // 边下边看时的预加载页数（0 = 关闭）
+            preload_count: 0
         }
     },
     mounted() {
@@ -184,6 +197,9 @@ export default defineComponent({
             } else if (key == "Http Proxy") {
                 config_name = "ICOMIC_HTTP_PROXY";
                 config_value = this.HTTP_PROXY;
+            } else if (key == "Preload") {
+                config_name = "READER_PRELOAD_COUNT";
+                config_value = this.preload_count;
             } else {
                 return;
             }
@@ -265,6 +281,7 @@ export default defineComponent({
                     this.lang = localStorage.getItem('lang') || res.data.LANGUAGE;
                     this.devices = res.data.ICOMIC_VIRTUAL_DEVICE;
                     this.device = res.data.ICOMIC_VIRTUAL_DEVICE_INDEX;
+                    this.preload_count = Number(res.data.READER_PRELOAD_COUNT) || 0;
                 }
             }).catch((err) => {
                 this.$g.tipbox.error(err.message);
